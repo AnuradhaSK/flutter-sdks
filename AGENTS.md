@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Flutter plugin providing the ThunderID authentication SDK (`thunderid_flutter`). Bridges to native iOS (`ThunderID` Swift SDK) and Android (`dev.thunderid:android`) via a `MethodChannel`. The `samples/quickstart` directory contains a standalone demo app.
+Flutter plugin providing the ThunderID authentication SDK (`thunderid_flutter`). Bridges to native iOS (`ThunderID` Swift SDK) and Android (`dev.thunderid:android`) via a `MethodChannel`. The Quickstart demo app lives in the samples repository at [`quickstarts/flutter`](https://github.com/thunder-id/samples/tree/main/quickstarts/flutter). The [`playground/`](playground/README.md) app exercises every SDK capability and widget against this checkout (`thunderid_flutter: path: ..`).
 
 ## SDK development specification
 
@@ -46,9 +46,18 @@ flutter analyze
 # Run unit tests
 flutter test
 
-# Build sample app (Android debug APK)
-cd samples/quickstart && flutter build apk --debug
+# Fetch the Quickstart sample into tests/e2e/.samples, pointed at this checkout,
+# then build it (Android debug APK)
+tests/e2e/scripts/prepare-sample.sh
+cd tests/e2e/.samples/quickstarts/flutter && cp .env.example .env && flutter build apk --debug
+
+# Analyze and build the playground app (it has its own pubspec and analysis_options,
+# and the root analyzer excludes it)
+cd playground && cp .env.example .env && flutter pub get && flutter analyze && flutter build apk --debug
 ```
+
+When you add or change a public API or widget, update the playground too: add or adjust the
+capability check in `playground/lib/src/checks.dart` or the story in `playground/lib/src/stories.dart`.
 
 ## `flutter analyze` compliance (required)
 
@@ -119,7 +128,8 @@ lib/
 android/                        Kotlin method channel handler (JVM 17, minSdk 26)
 ios/Classes/                    Swift method channel handler (iOS 16+)
 test/                           Unit tests (flutter_test + mockito)
-samples/quickstart/             Demo app (not part of the SDK package)
+tests/e2e/                      Maestro E2E suite; fetches the Quickstart sample from thunder-id/samples
+playground/                     Development app (checks, component explorer, session, logs) built from this checkout
 pubspec.yaml                    SDK package manifest
 analysis_options.yaml           Lint configuration
 ```
@@ -129,7 +139,7 @@ analysis_options.yaml           Lint configuration
 - **Layer 1 — Client** (`thunderid_client.dart`): public Dart API — initialization, auth flows, token management, user/profile access. Delegates all logic to native SDKs; does not perform networking itself.
 - **Layer 2 — Channel** (`channel/thunderid_channel.dart`): `MethodChannel('dev.thunderid/sdk')` bridge. Converts `PlatformException` → `IAMException` and handles typed deserialization.
 - **Layer 3 — Widgets** (`widgets/`): Flutter UI components built on `InheritedWidget` (`ThunderIDProvider`).
-- **Layer 4 — Sample** (`samples/quickstart/`): standalone demo app that depends on the SDK via path reference.
+- **Layer 4 — Sample** ([`thunder-id/samples` `quickstarts/flutter`](https://github.com/thunder-id/samples/tree/main/quickstarts/flutter)): standalone demo app that depends on the published SDK. `tests/e2e/scripts/prepare-sample.sh` fetches it and overrides that dependency with this checkout.
 
 Every widget ships in two variants:
 - **Styled** — opinionated Material 3 defaults (e.g. `SignInButton`).

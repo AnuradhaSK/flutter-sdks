@@ -44,6 +44,10 @@
       E2E_PASSWORD       Test user password (default TestPassword@123)
       INSTALL_DIR        Where to unpack the distribution (default .\.thunderid-server)
 
+    The sample is fetched from the samples repository and built against this SDK checkout; see
+    scripts\prepare-sample.ps1 for THUNDERID_SAMPLES_DIR, THUNDERID_SAMPLES_REPO and
+    THUNDERID_SAMPLES_REF.
+
     Requires PowerShell 7 or later, plus the Flutter SDK and a running Android emulator.
 #>
 
@@ -78,8 +82,9 @@ $E2eUser    = Get-EnvOrDefault 'E2E_USERNAME' 'e2e_mobile_user'
 $E2ePass    = Get-EnvOrDefault 'E2E_PASSWORD' 'TestPassword@123'
 $InstallDir = Get-EnvOrDefault 'INSTALL_DIR' (Join-Path $ScriptDir '.thunderid-server')
 
-# The sample owns its own application config, not the test script.
-$ConfigFile = Join-Path $ScriptDir '../../samples/quickstart/thunderid-config/thunderid-config.yaml'
+# Set once the sample is prepared. The sample owns its own application config, not the test script.
+$SampleDir = $null
+$ConfigFile = $null
 
 # Must match the `id` in $ConfigFile and the application ID the sample is built with.
 $AppId = '019e5b10-1001-7a2b-9c3d-4e5f60718293'
@@ -306,8 +311,6 @@ function Invoke-Provision {
 # Build and install the sample
 # -------------------------------------------------------------------------------------------
 function Build-Sample {
-    $sampleDir = Join-Path $ScriptDir '../../samples/quickstart' | Resolve-Path
-
     Write-Host '==> Configuring the sample'
     # 10.0.2.2 is the emulator's alias for the host loopback, where the server is listening. It
     # is also one of the loopback hosts the native SDK will relax certificate validation for.
@@ -316,10 +319,10 @@ function Build-Sample {
         "THUNDERID_APP_ID=$AppId"
         'THUNDERID_ATTESTATION_ENABLED=false'
         'THUNDERID_CLOUD_PROJECT_NUMBER='
-    ) | Set-Content -Path (Join-Path $sampleDir '.env') -Encoding utf8
+    ) | Set-Content -Path (Join-Path $SampleDir '.env') -Encoding utf8
 
     Write-Host '==> Building and installing the sample'
-    Push-Location $sampleDir
+    Push-Location $SampleDir
     try {
         & flutter pub get
         if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed with exit code $LASTEXITCODE." }
@@ -356,6 +359,10 @@ function Invoke-Flows {
     }
 }
 
+if (-not $SkipServer -or -not $SkipBuild) {
+    $SampleDir = & (Join-Path $ScriptDir 'scripts/prepare-sample.ps1')
+    $ConfigFile = Join-Path $SampleDir 'thunderid-config/thunderid-config.yaml'
+}
 if (-not $SkipServer) {
     Start-ThunderIDServer
     Invoke-Provision

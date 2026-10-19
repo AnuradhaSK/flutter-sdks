@@ -59,14 +59,6 @@ jobs:
       - name: 📦 Get Dependencies
         run: flutter pub get
 
-      - name: 📦 Get Sample Dependencies
-        working-directory: samples/quickstart
-        run: flutter pub get
-
-      - name: 🔐 Create Sample .env
-        working-directory: samples/quickstart
-        run: cp .env.example .env
-
       - name: 🔍 Run Flutter Analyze
         run: flutter analyze
 
@@ -127,16 +119,56 @@ jobs:
           channel: stable
           cache: true
 
+      # The sample lives in thunder-id/samples; this fetches it and points it at this checkout.
+      - name: 📥 Fetch Quickstart Sample
+        run: tests/e2e/scripts/prepare-sample.sh
+
       - name: 📦 Get Dependencies
-        working-directory: samples/quickstart
+        working-directory: tests/e2e/.samples/quickstarts/flutter
         run: flutter pub get
 
       - name: 🔐 Create Sample .env
-        working-directory: samples/quickstart
+        working-directory: tests/e2e/.samples/quickstarts/flutter
         run: cp .env.example .env
 
+      - name: 🔍 Analyze Quickstart Sample
+        working-directory: tests/e2e/.samples/quickstarts/flutter
+        run: flutter analyze
+
       - name: 🔨 Build Quickstart Sample
-        working-directory: samples/quickstart
+        working-directory: tests/e2e/.samples/quickstarts/flutter
+        run: flutter build apk --debug
+
+  build-playground:
+    name: 🛝 Build Playground
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: 🐦 Set up Flutter
+        uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c # v2
+        with:
+          channel: stable
+          cache: true
+
+      # The playground depends on this checkout (thunderid_flutter: path: ..).
+      - name: 🔐 Create Playground .env
+        working-directory: playground
+        run: cp .env.example .env
+
+      - name: 📦 Get Dependencies
+        working-directory: playground
+        run: flutter pub get
+
+      - name: 🔍 Analyze Playground
+        working-directory: playground
+        run: flutter analyze
+
+      - name: 🔨 Build Playground
+        working-directory: playground
         run: flutter build apk --debug
 
   e2e:

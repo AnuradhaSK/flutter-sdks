@@ -23,6 +23,10 @@
 #   E2E_PASSWORD       Test user password (default TestPassword@123)
 #   INSTALL_DIR        Where to unpack the distribution (default ./.thunderid-server)
 #
+#   The sample is fetched from the samples repository and built against this SDK checkout; see
+#   scripts/prepare-sample.sh for THUNDERID_SAMPLES_DIR, THUNDERID_SAMPLES_REPO and
+#   THUNDERID_SAMPLES_REF.
+#
 # Why not `npx thunderid`? That wrapper renders an interactive TUI and aborts with
 # "bubbletea: could not open TTY" when stdout is not a terminal, which is always the case on a CI
 # runner. The distribution's own setup.sh/start.sh take the same arguments non-interactively.
@@ -38,8 +42,9 @@ E2E_USER="${E2E_USERNAME:-e2e_mobile_user}"
 E2E_PASS="${E2E_PASSWORD:-TestPassword@123}"
 INSTALL_DIR="${INSTALL_DIR:-$SCRIPT_DIR/.thunderid-server}"
 
-# The sample owns its own application config, not the test script.
-CONFIG_FILE="$SCRIPT_DIR/../../samples/quickstart/thunderid-config/thunderid-config.yaml"
+# Set by prepare_sample. The sample owns its own application config, not the test script.
+SAMPLE_DIR=""
+CONFIG_FILE=""
 
 # Must match the `id` in $CONFIG_FILE and the application ID the sample is built with.
 APP_ID="019e5b10-1001-7a2b-9c3d-4e5f60718293"
@@ -53,7 +58,7 @@ for arg in "$@"; do
         --skip-server) do_server=false ;;
         --skip-build) do_build=false ;;
         --skip-test) do_test=false ;;
-        -h | --help) sed -n '2,27p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h | --help) sed -n '2,32p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) maestro_args+=("$arg") ;;
     esac
 done
@@ -61,6 +66,14 @@ done
 for tool in curl jq openssl; do
     command -v "$tool" >/dev/null 2>&1 || { echo "ERROR: $tool is required but not installed." >&2; exit 1; }
 done
+
+# ---------------------------------------------------------------------------------------------
+# Sample
+# ---------------------------------------------------------------------------------------------
+prepare_sample() {
+    SAMPLE_DIR=$("$SCRIPT_DIR/scripts/prepare-sample.sh")
+    CONFIG_FILE="$SAMPLE_DIR/thunderid-config/thunderid-config.yaml"
+}
 
 # ---------------------------------------------------------------------------------------------
 # Start
@@ -343,7 +356,7 @@ resolve_simulator() {
 # Build and install the sample
 # ---------------------------------------------------------------------------------------------
 build_sample() {
-    local sample_dir="$SCRIPT_DIR/../../samples/quickstart"
+    local sample_dir="$SAMPLE_DIR"
 
     echo "==> Configuring the sample"
     # These flows run on iOS: the sample's iOS target carries an NSAllowsArbitraryLoads exemption
@@ -397,6 +410,14 @@ run_flows() {
     # with "log_pid: unbound variable" after the flows have already passed.
     trap "kill $log_pid 2>/dev/null || true" EXIT
 
+    # The first TLS trust evaluation on a freshly booted simulator makes trustd download and verify
+    # Apple's PKI trust assets, and it answers no evaluation until that finishes, which can take
+    # minutes on a CI runner. Open the sign-in form once, untimed, so no flow starts its clock
+    # while trustd is still busy. A warm-up that fails leaves the suite to report the real error.
+    echo "==> Warming up certificate trust on the simulator"
+    (cd "$SCRIPT_DIR" && maestro --device "$SIM_UDID" test flows/subflows/warm-up-trust.yaml) ||
+        echo "WARNING: the trust warm-up did not reach the sign-in form; running the flows anyway." >&2
+
     echo "==> Running Maestro"
     # The JUnit report is what makes a failed run readable without scraping the console log; it
     # sits alongside Maestro's own debug output and CI collects both.
@@ -407,6 +428,7 @@ run_flows() {
         -e E2E_PASSWORD="$E2E_PASS")
 }
 
+if $do_server || $do_build; then prepare_sample; fi
 if $do_server; then
     start_server
     provision

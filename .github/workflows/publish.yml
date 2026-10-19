@@ -5,9 +5,9 @@
 #
 # Inlines dart-lang/setup-dart's reusable publish workflow (rather than calling it via
 # `uses:`) so we can pass --ignore-warnings to `dart pub publish`. Pub's package-layout
-# check always flags our top-level samples/ dir ("rename to example") regardless of
-# whether an example/ dir also exists, and in non-interactive CI any warning otherwise
-# fails the dry run. Keep the steps below in sync with
+# check always flags our top-level tests/ dir, which holds the E2E suite alongside the unit
+# tests in test/ ("rename to test"), and in non-interactive CI any warning otherwise fails the
+# dry run. Keep the steps below in sync with
 # https://github.com/dart-lang/setup-dart/blob/main/.github/workflows/publish.yml.
 
 name: 📦 Publish to pub.dev

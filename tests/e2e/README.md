@@ -4,6 +4,13 @@ Maestro flows that drive the Quickstart sample through real authentication again
 ThunderID server on an iOS Simulator. The flows live in [`flows/`](./flows); the
 scripts alongside them get a server into the right state to run against.
 
+The sample itself lives in the samples repository at
+[`quickstarts/flutter`](https://github.com/thunder-id/samples/tree/main/quickstarts/flutter).
+[`scripts/prepare-sample.sh`](./scripts/prepare-sample.sh) (or
+[`scripts/prepare-sample.ps1`](./scripts/prepare-sample.ps1) on Windows) fetches it into
+`tests/e2e/.samples` and writes a `pubspec_overrides.yaml` that points its `thunderid_flutter`
+dependency at this checkout, so the suite always exercises the local SDK.
+
 ## Running locally
 
 ```bash
@@ -20,6 +27,15 @@ scripts alongside them get a server into the right state to run against.
 Every stage is idempotent. A server that is already serving on `:8090` is reused rather than
 restarted, and provisioning re-applies cleanly over an existing application and user.
 
+The sample is fetched from `main` of `https://github.com/thunder-id/samples.git` by default.
+To test against something else:
+
+| Variable | Effect |
+|---|---|
+| `THUNDERID_SAMPLES_DIR` | Use an existing local samples checkout as is, instead of fetching one |
+| `THUNDERID_SAMPLES_REPO` | Fetch from another repository, such as a fork |
+| `THUNDERID_SAMPLES_REF` | Fetch another branch, tag or commit |
+
 ## What gets provisioned
 
 | Resource | Value |
@@ -28,8 +44,8 @@ restarted, and provisioning re-applies cleanly over an existing application and 
 | Test user | `e2e_mobile_user` / `TestPassword@123` |
 
 The application is declared in
-[`samples/quickstart/thunderid-config/thunderid-config.yaml`](../../samples/quickstart/thunderid-config/thunderid-config.yaml),
-alongside the sample it configures. The sign-up flow
+[`quickstarts/flutter/thunderid-config/thunderid-config.yaml`](https://github.com/thunder-id/samples/blob/main/quickstarts/flutter/thunderid-config/thunderid-config.yaml)
+in the samples repository, alongside the sample it configures. The sign-up flow
 registers an additional throwaway user per run, named `e2e_signup_<timestamp>`.
 
 ## Things worth knowing
