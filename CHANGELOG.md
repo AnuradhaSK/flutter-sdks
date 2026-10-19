@@ -1,3 +1,18 @@
+## 1.2.0
+
+- Follow federated redirects in sign-up for account linking
+- Render KEY_VALUE_LIST flow components and outlined secondary actions
+- Point the README at the ThunderID contributing guide
+- Implement ChangeCredential component in Flutter SDKs
+- Redesign UserProfile component layout
+- Block pull requests without a cross-SDK parity decision
+- Point agent instructions at the SDK development specification
+- Notify Google Chat when the nightly E2E run fails
+- Retry a credential submission that lost its connection
+- Make the E2E suite report honestly and survive dropped connections
+- Harden the Flutter E2E flows against CI timing flakiness
+- Add an end-to-end test suite for the Quickstart sample
+
 ## 1.1.0
 
 - Enable self-service profile updates in Flutter SDKs
