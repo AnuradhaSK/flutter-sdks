@@ -3,6 +3,7 @@
 Flutter SDK for ThunderID. Provides authentication and user management for cross-platform iOS and Android applications.
 
 - [Quickstart](https://thunderid.dev/docs/next/getting-started/connect-your-application/flutter/)
+- [Quickstart sample](https://github.com/thunder-id/samples/tree/main/quickstarts/flutter)
 - [API reference](https://thunderid.dev/docs/next/sdks/flutter/overview/)
 
 ## Installation
@@ -26,6 +27,18 @@ dependencies:
 > Replace `<latest-version>` with the version shown in the badge above, then run `flutter pub get`.
 
 The native iOS and Android ThunderID SDKs are pulled in automatically as transitive dependencies, no extra setup needed.
+
+## Playground
+
+[`playground/`](playground/README.md) is a Flutter app that runs every SDK capability and widget against
+this checkout: capability checks, a component explorer, a session inspector, and an SDK event log.
+
+```bash
+cd playground
+cp .env.example .env   # point it at your ThunderID server
+flutter pub get
+flutter run
+```
 
 ## Contributing
 

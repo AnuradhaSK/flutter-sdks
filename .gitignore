@@ -136,3 +136,6 @@ app.*.symbols
 tests/e2e/report.xml
 tests/e2e/app.log
 tests/e2e/debug/
+
+# Samples repository checkout fetched by tests/e2e/scripts/prepare-sample.sh
+tests/e2e/.samples/

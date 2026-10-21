@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    # Samples checkout fetched by the E2E suite; it is analyzed on its own.
+    - tests/e2e/.samples/**
+    # The playground app has its own pubspec and analysis_options; analyze it from playground/.
+    - playground/**
+
 linter:
   rules:
     - always_declare_return_types

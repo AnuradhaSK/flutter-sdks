@@ -1,0 +1,26 @@
+name: thunderid_flutter_playground
+description: ThunderID Flutter SDK playground. Exercises every thunderid_flutter capability against the SDK source in this repository.
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_dotenv: ^5.2.1
+  # Built from the SDK source in this repository, so every change to the plugin shows up here.
+  thunderid_flutter:
+    path: ..
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env
