@@ -1,3 +1,8 @@
+## 1.3.0
+
+- Sign in through the app's backend in the Flutter SDK
+- Move the quickstart to the samples repository and add a playground
+
 ## 1.2.0
 
 - Follow federated redirects in sign-up for account linking
