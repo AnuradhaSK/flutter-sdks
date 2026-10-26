@@ -8,6 +8,8 @@ import 'backend/backend_http_client.dart';
 import 'backend/http_transport.dart';
 import 'backend/resolve_backend_endpoints.dart';
 import 'channel/thunderid_channel.dart';
+import 'management/permissions.dart';
+import 'management/thunderid_management_client.dart';
 import 'models/flow_models.dart';
 import 'models/http_request.dart';
 import 'models/sign_in_options.dart';
@@ -31,6 +33,8 @@ class ThunderIDClient {
   bool _initialized = false;
   bool _isLoading = false;
   String? _afterSignOutUrl;
+  ThunderIDConfig? _config;
+  ThunderIDManagementClient? _management;
 
   BackendClient? _backend;
   BackendHttpClient? _backendHttp;
@@ -62,6 +66,7 @@ class ThunderIDClient {
     }
     final result = await _channel.invoke<bool>('initialize', config.toMap());
     _initialized = result ?? false;
+    if (_initialized) _config = config;
     return _initialized;
   }
 
@@ -433,6 +438,31 @@ class ThunderIDClient {
     }
     return backendHttp.request(request);
   }
+
+  // ── Management ────────────────────────────────────────────────────────────
+
+  /// Management operations for users, groups, roles, and agents, authorized with the signed-in
+  /// user's access token (spec "Management operations").
+  ///
+  /// Uses [ThunderIDConfig.endpoints] for collection URL overrides and
+  /// [ThunderIDConfig.http]'s fetcher, when set, as the transport.
+  ThunderIDManagementClient get management {
+    _requireInitialized();
+    final config = _config!;
+    return _management ??= ThunderIDManagementClient(
+      baseUrl: config.baseUrl,
+      endpoints: config.endpoints?.collections ?? const {},
+      fetcher: config.http?.fetcher,
+      accessTokenProvider: getAccessToken,
+      allowInsecureConnections: config.allowInsecureConnections,
+    );
+  }
+
+  /// The permissions the signed-in user's access token carries, read from its `scope`/`scopes`
+  /// claim. Decoded, not verified: use it only to decide what to show, and test a requirement
+  /// against it with [hasPermission].
+  Future<List<String>> getGrantedPermissions({String? sessionId}) async =>
+      getTokenPermissions(await getAccessToken(sessionId: sessionId));
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
