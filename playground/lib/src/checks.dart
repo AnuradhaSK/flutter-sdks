@@ -433,13 +433,13 @@ final List<CheckDef> checkDefs = [
     id: 'errors',
     section: 'Management',
     name: 'Forbidden vs not found',
-    api: 'IAMApiException · toManagementErrorMessage()',
+    api: 'IAMApiException · serverError · toManagementErrorMessage()',
     run: (sdk, config) async {
       // A client with its own fetcher answers 403 and 404 locally, so this needs no server.
-      Future<IAMApiException> failWith(int status) async {
+      Future<IAMApiException> failWith(int status, {String body = '{"description":"server detail"}'}) async {
         final client = ThunderIDManagementClient(
           baseUrl: config.baseUrl,
-          fetcher: (request) async => ManagementResponse(statusCode: status, body: '{"description":"server detail"}'),
+          fetcher: (request) async => ManagementResponse(statusCode: status, body: body),
         );
         try {
           await client.getRoles(limit: 1);
@@ -458,7 +458,12 @@ final List<CheckDef> checkDefs = [
       if (message == null || message.contains('server detail') || forbidden.message.contains('server detail')) {
         return const CheckResult.fail('The server response body leaked into the error message');
       }
-      return CheckResult.pass('403 → forbidden, 404 → notFound; UI text: "$message"');
+      // A body that is the server's error envelope is kept as serverError, with the server's code.
+      final envelope = await failWith(409, body: '{"code":"USR-1027","message":{"defaultValue":"In use"}}');
+      if (forbidden.serverError != null || envelope.serverError?.code != 'USR-1027') {
+        return CheckResult.fail('serverError: ${forbidden.serverError?.code} / ${envelope.serverError?.code}');
+      }
+      return CheckResult.pass('403 → forbidden, 404 → notFound, envelope → serverError USR-1027; UI text: "$message"');
     },
   ),
   CheckDef(
@@ -601,15 +606,229 @@ final List<CheckDef> checkDefs = [
     },
   ),
   CheckDef(
+    id: 'userUsages',
+    section: 'Management',
+    name: 'User usages (signed-in user)',
+    api: 'management.getUserUsages(userId)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final userId = sdk.user?.sub;
+      if (userId == null || userId.isEmpty) throw const CheckSkipped('The signed-in user has no sub claim.');
+      final usages = await _log.trace(
+        'getUserUsages',
+        () => management.getUserUsages(userId),
+        detail: (u) => '${u.count} usages',
+      );
+      final summary = usages.summary?.entries.map((e) => '${e.value} ${e.key}').join(', ');
+      return CheckResult.pass(
+        usages.usages.isEmpty ? 'Nothing references the signed-in user' : '${usages.count} usages${summary == null ? '' : ': $summary'}',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'userTypes',
+    section: 'Management',
+    name: 'User types',
+    api: 'management.getUserTypes() · getUserType(id)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final page = await _log.trace('getUserTypes', () => management.getUserTypes(limit: 10), detail: _pageDetail);
+      if (page.items.isEmpty) return const CheckResult.pass('No user types defined');
+      final first = page.items.first;
+      final type = await _log.trace(
+        'getUserType',
+        () => management.getUserType(first.id),
+        detail: (t) => '${t.schema.length} attributes',
+      );
+      return CheckResult.pass(
+        '${page.totalResults} types; "${type.displayName ?? type.handle}" (OU ${type.ouHandle ?? type.ouId}) '
+        'has ${type.schema.length} attributes',
+      );
+    },
+  ),
+  CheckDef(
     id: 'agentTypes',
     section: 'Management',
     name: 'Agent types',
-    api: 'management.getAgentTypes()',
+    api: 'management.getAgentTypes() · getAgentType(id)',
     run: (sdk, config) async {
       final management = _management(sdk);
       final page = await _log.trace('getAgentTypes', () => management.getAgentTypes(limit: 10), detail: _pageDetail);
       final names = page.items.map((t) => t.displayName.isEmpty ? t.handle : t.displayName).take(3).join(', ');
-      return CheckResult.pass(page.items.isEmpty ? 'No agent types defined' : '${page.totalResults} types: $names');
+      if (page.items.isEmpty) return const CheckResult.pass('No agent types defined');
+      final type = await _log.trace(
+        'getAgentType',
+        () => management.getAgentType(page.items.first.id),
+        detail: (t) => '${t.schema.length} attributes',
+      );
+      return CheckResult.pass('${page.totalResults} types: $names; "${type.handle}" has ${type.schema.length} attributes');
+    },
+  ),
+  CheckDef(
+    id: 'applications',
+    section: 'Management',
+    name: 'Applications',
+    api: 'management.getApplications() · getApplication(id)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final page = await _log.trace('getApplications', () => management.getApplications(limit: 5), detail: _pageDetail);
+      if (page.items.isEmpty) return const CheckResult.pass('No applications registered');
+      final application = await _log.trace(
+        'getApplication',
+        () => management.getApplication(page.items.first.id),
+        detail: (a) => a.name,
+      );
+      final oauth = application.oauth2Config;
+      return CheckResult.pass(
+        '${page.totalResults} applications; "${application.name}" '
+        '${oauth == null ? 'has no OAuth client' : 'grants ${oauth.grantTypes.join(', ')}'}',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'administrationFlows',
+    section: 'Management',
+    name: 'Administration flows',
+    api: 'management.resolveAdministrationFlows() · AdministrationMode.flow',
+    run: (sdk, config) async {
+      // Read only: which operations would run a flow in AdministrationMode.flow. Needs a token that
+      // may read server configuration and flows.
+      final management = _management(sdk);
+      final resolved = await _log.trace(
+        'resolveAdministrationFlows',
+        () => management.resolveAdministrationFlows(AdministrationFlowConfigKey.values),
+        detail: (r) => '${r.length} configured',
+      );
+      if (resolved.isEmpty) {
+        return const CheckResult.pass('No administration flows configured: flow mode calls the API directly');
+      }
+      return CheckResult.pass(
+        '${resolved.length} of ${AdministrationFlowConfigKey.values.length} operations run a flow: '
+        '${resolved.keys.join(', ')}',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'organizationUnits',
+    section: 'Management',
+    name: 'Organization units',
+    api: 'management.getOrganizationUnits() · getOrganizationUnitByPath(path) · getOrganizationUnitChildren()',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final page =
+          await _log.trace('getOrganizationUnits', () => management.getOrganizationUnits(limit: 5), detail: _pageDetail);
+      if (page.items.isEmpty) return const CheckResult.pass('No organization units');
+      final first = page.items.first;
+      final unit = await _log.trace(
+        'getOrganizationUnitByPath',
+        () => management.getOrganizationUnitByPath(first.handle),
+        detail: (u) => u.id,
+      );
+      final children = await _log.trace(
+        'getOrganizationUnitChildren',
+        () => management.getOrganizationUnitChildren(path: first.handle, limit: 5),
+        detail: _pageDetail,
+      );
+      return CheckResult.pass(
+        '${page.totalResults} root units; "${unit.name}" (${unit.handle}) has ${children.totalResults} children',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'resourceServers',
+    section: 'Management',
+    name: 'Resource servers',
+    api: 'management.getResourceServers() · getResources(id) · getActions(id)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final page =
+          await _log.trace('getResourceServers', () => management.getResourceServers(limit: 5), detail: _pageDetail);
+      if (page.items.isEmpty) return const CheckResult.pass('No resource servers');
+      final server = page.items.first;
+      final resources =
+          await _log.trace('getResources', () => management.getResources(server.id, limit: 5), detail: _pageDetail);
+      final actions = await _log.trace('getActions', () => management.getActions(server.id, limit: 5), detail: _pageDetail);
+      return CheckResult.pass(
+        '${page.totalResults} servers; "${server.name}" has ${resources.totalResults} resources and '
+        '${actions.totalResults} actions',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'connectionsAndFlows',
+    section: 'Management',
+    name: 'Connections and flows',
+    api: 'management.getConnections() · getConnectionsMeta() · getFlows() · getFlowVersions(id)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final connections =
+          await _log.trace('getConnections', () => management.getConnections(limit: 5), detail: _pageDetail);
+      final meta = await _log.trace(
+        'getConnectionsMeta',
+        management.getConnectionsMeta,
+        detail: (m) => '${m.vendors.length} vendors',
+      );
+      final flows = await _log.trace('getFlows', () => management.getFlows(limit: 5), detail: _pageDetail);
+      var versions = '';
+      if (flows.items.isNotEmpty) {
+        final history = await _log.trace(
+          'getFlowVersions',
+          () => management.getFlowVersions(flows.items.first.id),
+          detail: (v) => '${v.totalVersions} versions',
+        );
+        versions = '; "${flows.items.first.name}" has ${history.totalVersions} versions';
+      }
+      return CheckResult.pass(
+        '${connections.totalResults} connections (${meta.vendors.length} vendors); '
+        '${flows.totalResults} flows$versions',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'designAndTranslations',
+    section: 'Management',
+    name: 'Design, translations and templates',
+    api: 'management.getThemes() · getLayouts() · getLanguages() · getNotificationTemplates(channel)',
+    run: (sdk, config) async {
+      final management = _management(sdk);
+      final themes = await _log.trace('getThemes', () => management.getThemes(limit: 5), detail: _pageDetail);
+      final layouts = await _log.trace('getLayouts', () => management.getLayouts(limit: 5), detail: _pageDetail);
+      final languages =
+          await _log.trace('getLanguages', management.getLanguages, detail: (l) => '${l.length} languages');
+      final templates = await _log.trace(
+        'getNotificationTemplates',
+        () => management.getNotificationTemplates(NotificationChannel.email, limit: 5),
+        detail: _pageDetail,
+      );
+      return CheckResult.pass(
+        '${themes.totalResults} themes, ${layouts.totalResults} layouts, languages ${languages.join(', ')}, '
+        '${templates.totalResults} email templates',
+      );
+    },
+  ),
+  CheckDef(
+    id: 'configurationAndGateways',
+    section: 'Management',
+    name: 'Server configuration, variables and gateways',
+    api: 'management.getServerConfigs() · getVariables() · getSecrets() · getGateways() · getConfigurationVersions()',
+    run: (sdk, config) async {
+      // Read only. Secrets come back without their values.
+      final management = _management(sdk);
+      final sections =
+          await _log.trace('getServerConfigs', management.getServerConfigs, detail: (n) => '${n.length} sections');
+      final variables = await _log.trace('getVariables', () => management.getVariables(limit: 5), detail: _pageDetail);
+      final secrets = await _log.trace('getSecrets', () => management.getSecrets(limit: 5), detail: _pageDetail);
+      final gateways =
+          await _log.trace('getGateways', management.getGateways, detail: (g) => '${g.length} gateways');
+      final versions = await _log.trace(
+        'getConfigurationVersions',
+        management.getConfigurationVersions,
+        detail: (v) => '${v.length} versions',
+      );
+      return CheckResult.pass(
+        '${sections.length} config sections, ${variables.totalResults} variables, ${secrets.totalResults} secrets, '
+        '${gateways.length} gateways, ${versions.length} configuration versions',
+      );
     },
   ),
   CheckDef(

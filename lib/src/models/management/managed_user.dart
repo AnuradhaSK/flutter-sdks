@@ -96,6 +96,17 @@ class CreateManagedUserRequest {
       };
 }
 
+/// Payload for creating a [ManagedUser] in the organization unit at a handle path; the path
+/// gives the unit, so there is no `ouId`.
+class CreateUserByPathRequest {
+  final String type;
+  final Map<String, dynamic>? attributes;
+
+  const CreateUserByPathRequest({required this.type, this.attributes});
+
+  Map<String, dynamic> toJson() => {'type': type, if (attributes != null) 'attributes': attributes};
+}
+
 /// Payload for updating a [ManagedUser]. The server replaces the attribute set, so pass every
 /// attribute the user should keep.
 class UpdateManagedUserRequest {
@@ -112,4 +123,89 @@ class UpdateManagedUserRequest {
         if (attributes != null) 'attributes': attributes,
         if (groups != null) 'groups': groups,
       };
+}
+
+/// What happens to a resource that references a user when the user is deleted.
+enum UserUsageBehavior {
+  fallback('fallback'),
+  cascade('cascade'),
+  restrict('restrict');
+
+  /// The wire value.
+  final String value;
+
+  const UserUsageBehavior(this.value);
+
+  /// Parses a wire value, or returns `null` for a behaviour this SDK does not know.
+  static UserUsageBehavior? fromValue(String? value) {
+    for (final behavior in values) {
+      if (behavior.value == value) return behavior;
+    }
+    return null;
+  }
+}
+
+/// A resource that references a user, such as an agent that names the user as its owner.
+class UserUsage {
+  final String id;
+  final String displayName;
+
+  /// The kind of resource, such as `agent`.
+  final String resourceType;
+
+  /// What happens to the resource when the user is deleted; `null` for a value this SDK does not
+  /// know.
+  final UserUsageBehavior? behaviorOnDelete;
+
+  const UserUsage({
+    required this.id,
+    required this.displayName,
+    required this.resourceType,
+    this.behaviorOnDelete,
+  });
+
+  factory UserUsage.fromJson(Map<String, dynamic> json) => UserUsage(
+        id: readString(json, 'id'),
+        displayName: readString(json, 'displayName'),
+        resourceType: readString(json, 'resourceType'),
+        behaviorOnDelete: UserUsageBehavior.fromValue(readOptionalString(json, 'behaviorOnDelete')),
+      );
+}
+
+/// The resources that reference a user. [totalResults] and [summary] are `null` when the server
+/// could not tell; `0` means there are none.
+class UserUsages {
+  final List<UserUsage> usages;
+  final int count;
+  final int? totalResults;
+
+  /// The number of usages of each resource type, such as `agent`.
+  final Map<String, int>? summary;
+
+  const UserUsages({required this.usages, required this.count, this.totalResults, this.summary});
+
+  factory UserUsages.fromJson(Map<String, dynamic> json) {
+    final usages = readList(json, 'usages').map((item) => UserUsage.fromJson(readMap(item))).toList(growable: false);
+    final summary = json['summary'];
+    return UserUsages(
+      usages: usages,
+      count: readInt(json, 'count', usages.length),
+      totalResults: json['totalResults'] is num ? readInt(json, 'totalResults') : null,
+      summary: summary is Map
+          ? {
+              for (final entry in summary.entries)
+                if (entry.value is num) entry.key.toString(): (entry.value as num).toInt(),
+            }
+          : null,
+    );
+  }
+}
+
+/// New values for some of a user's credential attributes, keyed by attribute name.
+class UpdateUserCredentialsRequest {
+  final Map<String, String> credentials;
+
+  const UpdateUserCredentialsRequest({required this.credentials});
+
+  Map<String, dynamic> toJson() => {'credentials': credentials};
 }

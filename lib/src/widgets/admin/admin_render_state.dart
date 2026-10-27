@@ -4,6 +4,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../models/management/agent.dart';
+import '../../models/management/application.dart';
 import '../../models/management/group.dart';
 import '../../models/management/managed_user.dart';
 import '../../models/management/role.dart';
@@ -172,6 +173,183 @@ class AgentCreateFormState {
     required this.error,
     required this.submit,
     required this.onCancel,
+  });
+}
+
+/// What [BaseApplicationCreate] hands its `builder`.
+///
+/// Once the application is created and the server returned a client secret, [clientSecret]
+/// holds it until [onSecretDismissed] is called; it is never available again after that.
+class ApplicationCreateFormState {
+  final String name;
+  final ValueChanged<String> onNameChanged;
+  final String description;
+  final ValueChanged<String> onDescriptionChanged;
+  final String url;
+  final ValueChanged<String> onUrlChanged;
+  final String logoUrl;
+  final ValueChanged<String> onLogoUrlChanged;
+
+  /// The application types, with translated labels.
+  final List<AdminSelectOption> applicationTypes;
+
+  /// The chosen application type; `browser` until another is set.
+  final String type;
+  final ValueChanged<String> onTypeChanged;
+
+  /// The grant types that can be chosen, with translated labels.
+  final List<AdminSelectOption> availableGrantTypes;
+
+  /// The chosen grant types; the authorization code and refresh token grants until changed.
+  final List<String> grantTypes;
+
+  /// Adds (`true`) or removes (`false`) a grant type.
+  final void Function(String grantType, bool selected) onGrantTypeChanged;
+
+  /// The redirect URIs as typed, one per line.
+  final String redirectUris;
+  final ValueChanged<String> onRedirectUrisChanged;
+
+  /// Whether the client is public: it has no secret and must use PKCE.
+  final bool publicClient;
+  final ValueChanged<bool> onPublicClientChanged;
+
+  /// Whether a name, at least one grant type, valid redirect URIs (one is required for the
+  /// authorization code grant) are set, and a public client does not ask for client credentials.
+  final bool isValid;
+  final bool isSubmitting;
+  final String? error;
+
+  /// Submits the current values. Does nothing while they are not valid or a submission is in flight.
+  final VoidCallback submit;
+  final VoidCallback? onCancel;
+
+  /// The created application's client secret, shown once. `null` when there is none to show.
+  final String? clientSecret;
+
+  /// Forgets [clientSecret]. `null` when there is none.
+  final VoidCallback? onSecretDismissed;
+
+  const ApplicationCreateFormState({
+    required this.name,
+    required this.onNameChanged,
+    required this.description,
+    required this.onDescriptionChanged,
+    required this.url,
+    required this.onUrlChanged,
+    required this.logoUrl,
+    required this.onLogoUrlChanged,
+    required this.applicationTypes,
+    required this.type,
+    required this.onTypeChanged,
+    required this.availableGrantTypes,
+    required this.grantTypes,
+    required this.onGrantTypeChanged,
+    required this.redirectUris,
+    required this.onRedirectUrisChanged,
+    required this.publicClient,
+    required this.onPublicClientChanged,
+    required this.isValid,
+    required this.isSubmitting,
+    required this.error,
+    required this.submit,
+    required this.onCancel,
+    required this.clientSecret,
+    required this.onSecretDismissed,
+  });
+}
+
+/// The changes [BaseApplicationDetails] saves: the general fields and the OAuth client's redirect
+/// URIs and grant types. Empty text fields are saved as absent.
+class ApplicationEdit {
+  final String name;
+  final String? description;
+  final String? url;
+  final String? logoUrl;
+  final List<String> redirectUris;
+  final List<String> grantTypes;
+
+  const ApplicationEdit({
+    required this.name,
+    this.description,
+    this.url,
+    this.logoUrl,
+    this.redirectUris = const [],
+    this.grantTypes = const [],
+  });
+
+  /// [application] with these changes, as a full update: every other field, including the ones
+  /// this SDK does not model, is kept. The OAuth client's response types follow the grant types.
+  UpdateApplicationRequest applyTo(Application application) {
+    final json = application.toJson();
+    json['name'] = name;
+    void setOrRemove(String key, String? value) =>
+        value == null || value.isEmpty ? json.remove(key) : json[key] = value;
+    setOrRemove('description', description);
+    setOrRemove('url', url);
+    setOrRemove('logoUrl', logoUrl);
+    final inbound = json['inboundAuthConfig'];
+    if (inbound is List) {
+      json['inboundAuthConfig'] = [
+        for (final entry in inbound)
+          if (entry is Map && entry['type'] == InboundAuthTypes.oauth2)
+            {
+              ...entry,
+              'config': {
+                ...(entry['config'] is Map ? entry['config'] as Map : const {}),
+                'redirectUris': redirectUris,
+                'grantTypes': grantTypes,
+                'responseTypes': grantTypes.contains(OAuth2GrantTypes.authorizationCode) ? [OAuth2ResponseTypes.code] : <String>[],
+              },
+            }
+          else
+            entry,
+      ];
+    }
+    return UpdateApplicationRequest.fromJson(json);
+  }
+}
+
+/// What [BaseApplicationDetails] hands its `builder`.
+class ApplicationDetailsState {
+  final Application? application;
+  final bool isLoading;
+  final String? error;
+  final bool isDeleting;
+  final bool isUpdating;
+  final bool isRegeneratingSecret;
+
+  /// A regenerated client secret, shown once: `null` after [onSecretDismissed].
+  final String? clientSecret;
+
+  /// Deletes the application. `null` when deletion is not allowed, including for read-only
+  /// applications. A custom UI must ask for confirmation first.
+  final VoidCallback? onDelete;
+
+  /// Saves the given changes. `null` when editing is not allowed, including for read-only
+  /// applications.
+  final ValueChanged<ApplicationEdit>? onUpdate;
+
+  /// Regenerates the client secret. `null` when not allowed, including for read-only
+  /// applications and those without a confidential OAuth client. A custom UI must ask for
+  /// confirmation first.
+  final VoidCallback? onRegenerateSecret;
+
+  /// Forgets [clientSecret]. `null` when there is none.
+  final VoidCallback? onSecretDismissed;
+
+  const ApplicationDetailsState({
+    required this.application,
+    required this.isLoading,
+    required this.error,
+    required this.isDeleting,
+    required this.isUpdating,
+    required this.isRegeneratingSecret,
+    required this.clientSecret,
+    required this.onDelete,
+    required this.onUpdate,
+    required this.onRegenerateSecret,
+    required this.onSecretDismissed,
   });
 }
 

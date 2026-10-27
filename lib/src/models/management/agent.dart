@@ -149,6 +149,10 @@ class UpdateAgentRequest {
   final bool? isRegistrationFlowEnabled;
   final List<Map<String, dynamic>>? inboundAuthConfig;
 
+  /// Whether the agent acts on behalf of a signed-in user. The server does not store it, so a full
+  /// update sends it for the agent to be held to the delegated grant rules.
+  final bool? delegated;
+
   const UpdateAgentRequest({
     this.name,
     this.ouId,
@@ -163,6 +167,7 @@ class UpdateAgentRequest {
     this.registrationFlowId,
     this.isRegistrationFlowEnabled,
     this.inboundAuthConfig,
+    this.delegated,
   });
 
   Map<String, dynamic> toJson() => {
@@ -179,5 +184,17 @@ class UpdateAgentRequest {
         if (registrationFlowId != null) 'registrationFlowId': registrationFlowId,
         if (isRegistrationFlowEnabled != null) 'isRegistrationFlowEnabled': isRegistrationFlowEnabled,
         if (inboundAuthConfig != null) 'inboundAuthConfig': inboundAuthConfig,
+        if (delegated != null) 'delegated': delegated,
       };
+}
+
+/// The result of `regenerateAgentSecret`.
+class RegenerateAgentSecretResult {
+  /// The agent after the change.
+  final Agent agent;
+
+  /// The new client secret. This is the only time it can be read.
+  final String clientSecret;
+
+  const RegenerateAgentSecretResult({required this.agent, required this.clientSecret});
 }

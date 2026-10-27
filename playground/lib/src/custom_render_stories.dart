@@ -33,6 +33,23 @@ const _memberships = [
   MembershipGroup(id: 'g-support', name: 'Support', ouId: _ou),
 ];
 
+final _detailApplication = Application.fromJson({
+  'id': 'app-shop',
+  'ouId': _ou,
+  'name': 'Shop',
+  'type': 'browser',
+  'inboundAuthConfig': [
+    {
+      'type': 'oauth2',
+      'config': {
+        'clientId': 'shop-client',
+        'grantTypes': ['authorization_code'],
+        'redirectUris': ['https://shop.example.com/callback'],
+      },
+    },
+  ],
+});
+
 const _stories = [StoryDef('base', 'Base (sample data)'), StoryDef('connected', 'Connected')];
 
 String _name(ManagedUser user) =>
@@ -157,7 +174,144 @@ ${s.story == 'connected' ? "UserDetails(userId: '${s.text('userId')}', deletable
   ),
 )''',
   ),
+  ComponentDef(
+    id: 'customApplicationDetails',
+    name: 'ApplicationDetails → Card',
+    category: 'Custom rendering',
+    stories: _stories,
+    controls: const [ControlDef.text('applicationId')],
+    defaults: const {'applicationId': ''},
+    build: (context, s) {
+      if (s.story == 'connected' && s.text('applicationId').isEmpty) {
+        return const Text('Set applicationId to an ID from your server.');
+      }
+      return _themed(
+        s,
+        s.story == 'connected'
+            ? ApplicationDetails(
+                applicationId: s.text('applicationId'),
+                secretRegenerable: true,
+                builder: (context, details) => _ApplicationCard(details: details),
+              )
+            : _SampleApplicationDetails(emit: s.emit),
+      );
+    },
+    code: (s) => '''
+${s.story == 'connected' ? "ApplicationDetails(applicationId: '${s.text('applicationId')}', secretRegenerable: true," : 'BaseApplicationDetails(application: application, clientSecret: secret, onRegenerateSecret: regenerate, onSecretDismissed: forget,'}
+  builder: (context, details) => Card(
+    child: Column(children: [
+      ListTile(title: Text(details.application?.name ?? ''), subtitle: Text(details.application?.oauth2Config?.clientId ?? '')),
+      if (details.clientSecret != null) ...[
+        SelectableText(details.clientSecret!),
+        TextButton(onPressed: details.onSecretDismissed, child: const Text('I have copied it')),
+      ],
+      // Ask for confirmation before calling onRegenerateSecret.
+      if (details.onRegenerateSecret != null)
+        TextButton(onPressed: () => confirmThen(details.onRegenerateSecret!), child: const Text('Regenerate secret')),
+    ]),
+  ),
+)''',
+  ),
 ];
+
+/// Regenerates a sample secret and forgets it once dismissed, the way an application holding the
+/// data would.
+class _SampleApplicationDetails extends StatefulWidget {
+  final void Function(String action) emit;
+
+  const _SampleApplicationDetails({required this.emit});
+
+  @override
+  State<_SampleApplicationDetails> createState() => _SampleApplicationDetailsState();
+}
+
+class _SampleApplicationDetailsState extends State<_SampleApplicationDetails> {
+  String? _secret;
+
+  @override
+  Widget build(BuildContext context) => BaseApplicationDetails(
+        application: _detailApplication,
+        clientSecret: _secret,
+        onRegenerateSecret: () {
+          setState(() => _secret = 'sample-secret-${DateTime.now().millisecondsSinceEpoch % 10000}');
+          widget.emit('onRegenerateSecret');
+        },
+        onSecretDismissed: () {
+          setState(() => _secret = null);
+          widget.emit('onSecretDismissed');
+        },
+        builder: (context, details) => _ApplicationCard(details: details),
+      );
+}
+
+/// The application details state drawn as a Material card, with a confirmation dialog before the
+/// secret is regenerated.
+class _ApplicationCard extends StatelessWidget {
+  final ApplicationDetailsState details;
+
+  const _ApplicationCard({required this.details});
+
+  Future<void> _confirmRegenerate(BuildContext context, VoidCallback regenerate) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Regenerate the client secret?'),
+        content: const Text('Anything using the current secret stops working.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+            key: const Key('playground-custom-application-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Regenerate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) regenerate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final application = details.application;
+    if (details.isLoading && application == null) return const Center(child: CircularProgressIndicator());
+    final oauth = application?.oauth2Config;
+    final regenerate = details.onRegenerateSecret;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (details.error != null)
+              Text(details.error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.apps),
+              title: Text(application?.name ?? ''),
+              subtitle: Text(oauth?.clientId ?? ''),
+            ),
+            Wrap(spacing: 6, children: [for (final grant in oauth?.grantTypes ?? const <String>[]) Chip(label: Text(grant))]),
+            for (final uri in oauth?.redirectUris ?? const <String>[]) Text(uri),
+            if (details.clientSecret != null) ...[
+              const SizedBox(height: 8),
+              SelectableText(details.clientSecret!, key: const Key('playground-custom-application-secret')),
+              TextButton(onPressed: details.onSecretDismissed, child: const Text('I have copied it')),
+            ],
+            if (regenerate != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const Key('playground-custom-application-regenerate'),
+                  onPressed: details.isRegeneratingSecret ? null : () => _confirmRegenerate(context, regenerate),
+                  child: const Text('Regenerate secret'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Pages and selects the sample users, the way an application holding the data would.
 class _SampleUserList extends StatefulWidget {

@@ -12,8 +12,8 @@ repository.
 
 | Tab | What it does |
 |---|---|
-| **Checks** | Runs capability checks through the real SDK (system browser sign-in URL, app-native flow, passkey bridge, sign out, redirect callback, token refresh, secure storage, user info, theming, translations) and the management layer (management endpoints, forbidden vs not found errors, permission checks, groups, group members, roles and the shared state layer, role assignments, the signed-in user's groups, agent types, agent groups, agent roles). Run one or run all, with pass/fail and the reason, a summary ring, and the server's health. Capabilities the SDK has no API for (biometric unlock, organizations) are listed as unavailable. |
-| **Components** | Storybook-style explorer for the SDK widgets (`SignInButton`, `SignOutButton`, `SignUpButton`, `SignIn`, `SignUp`, `UserAvatar`, `UserObject`, `UserDropdown`, `UserProfile`, `ChangeCredential`, `LanguageSwitcher`, `ThunderIDLogo`, `SignedIn` / `SignedOut` / `Loading`) and the admin widgets (`UserList`, `UserCreate`, `UserDetails`, `GroupList`, `GroupCreate`, `GroupMembers`, `RoleList`, `RoleCreate`, `RolePermissions`, `RoleAssignments`, `AgentList`, `AgentCreate`, `AgentDetails`). Pick a story, edit props in Controls, copy the generated Flutter snippet from Code, and watch callbacks in Actions. Toggle the preview between light and dark. |
+| **Checks** | Runs capability checks through the real SDK (system browser sign-in URL, app-native flow, passkey bridge, sign out, redirect callback, token refresh, secure storage, user info, theming, translations) and the management layer (management endpoints, forbidden vs not found errors, permission checks, groups, group members, roles and the shared state layer, role assignments, the signed-in user's groups and usages, user types, agent types, agent groups, agent roles, applications, administration flows, organization units, resource servers, connections and flows, design, translations and notification templates, server configuration, variables, secrets, gateways and configuration versions). Run one or run all, with pass/fail and the reason, a summary ring, and the server's health. Capabilities the SDK has no API for (biometric unlock, organizations) are listed as unavailable. |
+| **Components** | Storybook-style explorer for the SDK widgets (`SignInButton`, `SignOutButton`, `SignUpButton`, `SignIn`, `SignUp`, `UserAvatar`, `UserObject`, `UserDropdown`, `UserProfile`, `ChangeCredential`, `LanguageSwitcher`, `ThunderIDLogo`, `SignedIn` / `SignedOut` / `Loading`) and the admin widgets (`UserList`, `UserCreate`, `UserDetails`, `GroupList`, `GroupCreate`, `GroupMembers`, `RoleList`, `RoleCreate`, `RolePermissions`, `RoleAssignments`, `AgentList`, `AgentCreate`, `AgentDetails`, `ApplicationList`, `ApplicationCreate`, `ApplicationDetails`). Pick a story, edit props in Controls, copy the generated Flutter snippet from Code, and watch callbacks in Actions. Toggle the preview between light and dark. |
 | **Session** | Signed-in user, access token countdown, refresh and sign out, the access token (reveal or copy), decoded claims, granted permissions, and recent events. When signed out, it opens the SDK's `SignIn` and `SignUp` widgets. |
 | **Logs** | Every SDK call the playground makes and every session change it observes, filterable by outcome. |
 
@@ -21,7 +21,8 @@ repository.
 
 The management checks call the management API with the signed-in user's access token, so sign in
 first. They only read: listing, then reading the first record they find (the first group for its
-members, the first role for its assignments, the first agent for its groups and roles). A check
+members, the first role for its assignments, the first agent for its groups and roles, the first
+user type and agent type for their attribute schema, the first application for its OAuth client). A check
 with nothing to read says which Admin story creates the record. HTTP 403 means the token lacks the
 permission: request it with `THUNDERID_SCOPES`.
 
@@ -33,7 +34,15 @@ Two checks need no session or server:
   override the SDK rejects (plain HTTP to a non-loopback host) fails with the SDK's reason.
 - **Forbidden vs not found** feeds a `ThunderIDManagementClient` 403 and 404 answers and confirms
   they map to `forbidden` and `notFound`, and that `toManagementErrorMessage()` shows translated
-  text, never the server's.
+  text, never the server's. It also confirms that a body in the server's error envelope
+  (`{code, message, description}`) is kept as `IAMApiException.serverError`, with the server's code.
+
+**Administration flows** lists which operations the server runs through an administration flow
+(`resolveAdministrationFlows()` over every `AdministrationFlowConfigKey`), which is what
+`administrationMode: AdministrationMode.flow` uses for deletes, member and assignment removal,
+permission removal and client secret regeneration. It only reads, and needs a token that may read
+server configuration and flows. Nothing in the playground deletes or regenerates a secret through
+a check.
 
 ### Admin stories
 
@@ -41,7 +50,7 @@ Each admin widget has a **Connected** story (the real widget, talking to the man
 **Base** story (the presentational `Base*` variant fed sample records, so it renders without a
 server). Base stories cover the loading, empty and forbidden states; the forbidden message comes
 from `toManagementErrorMessage()`. Detail stories (`UserDetails`, `GroupMembers`,
-`RolePermissions`, `RoleAssignments`, `AgentDetails`) take an id control; leave it empty and they
+`RolePermissions`, `RoleAssignments`, `AgentDetails`, `ApplicationDetails`) take an id control; leave it empty and they
 use the row you last selected in the matching Connected list story. Create stories use the
 `ouId` control, which defaults to `THUNDERID_OU_ID` and then to the signed-in user's `ouId`
 claim.
@@ -97,11 +106,13 @@ cp .env.example .env
 | `THUNDERID_CLOUD_PROJECT_NUMBER` | Google Cloud project number, required by Play Integrity when attestation is on. |
 | `THUNDERID_SCOPES` | Scopes requested at sign-in, space separated. Defaults to `openid profile email`. Add the server's admin permissions (e.g. `system`) to exercise the management checks and Connected admin stories. |
 | `THUNDERID_OU_ID` | Organization unit the Admin create stories use. Defaults to the signed-in user's `ouId` claim. |
-| `THUNDERID_ENDPOINT_USERS`, `_USER_TYPES`, `_GROUPS`, `_ROLES`, `_AGENTS`, `_AGENT_TYPES` | Optional per-collection URL. |
+| `THUNDERID_ENDPOINT_USERS`, `_USER_TYPES`, `_GROUPS`, `_ROLES`, `_AGENTS`, `_AGENT_TYPES`, `_APPLICATIONS`, `_ORGANIZATION_UNITS`, `_RESOURCE_SERVERS`, `_CONNECTIONS`, `_FLOWS`, `_NOTIFICATION_TEMPLATES`, `_DESIGN`, `_I18N`, `_SERVER_CONFIG`, `_GATEWAYS`, `_VARIABLES`, `_SECRETS`, `_CONFIGURATION_VERSIONS`, `_IMPORT`, `_EXPORT` | Optional per-collection URL. |
 
 Unset, each collection resolves to the SDK default `<THUNDERID_BASE_URL>/<collection>`.
-There is no `THUNDERID_ENDPOINT_APPLICATIONS`: the Flutter SDK has no applications collection
-(`ManagementEndpointKeys` covers users, user types, groups, roles, agents and agent types only).
+`THUNDERID_ENDPOINT_APPLICATIONS` applies to the application operations (list, get, create, update,
+delete and secret regeneration). The CIMD preview (`previewCimdDocument`) and the administration flows
+are server endpoints rather than collections, so they always go to `THUNDERID_BASE_URL`, whatever the
+overrides.
 
 ### Management endpoints
 

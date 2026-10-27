@@ -149,6 +149,21 @@ class EndpointsConfig {
   final String? roles;
   final String? agents;
   final String? agentTypes;
+  final String? applications;
+  final String? organizationUnits;
+  final String? resourceServers;
+  final String? connections;
+  final String? flows;
+  final String? notificationTemplates;
+  final String? design;
+  final String? i18n;
+  final String? serverConfig;
+  final String? gateways;
+  final String? variables;
+  final String? secrets;
+  final String? configurationVersions;
+  final String? import;
+  final String? export;
 
   /// The app backend's auth endpoints. Setting them hands sign-in to the backend: the SDK then
   /// signs in, reads the session, and sends API calls through the backend, and the embedded
@@ -162,6 +177,21 @@ class EndpointsConfig {
     this.roles,
     this.agents,
     this.agentTypes,
+    this.applications,
+    this.organizationUnits,
+    this.resourceServers,
+    this.connections,
+    this.flows,
+    this.notificationTemplates,
+    this.design,
+    this.i18n,
+    this.serverConfig,
+    this.gateways,
+    this.variables,
+    this.secrets,
+    this.configurationVersions,
+    this.import,
+    this.export,
     this.backend,
   });
 
@@ -173,6 +203,21 @@ class EndpointsConfig {
         if (roles case final url?) 'roles': url,
         if (agents case final url?) 'agents': url,
         if (agentTypes case final url?) 'agentTypes': url,
+        if (applications case final url?) 'applications': url,
+        if (organizationUnits case final url?) 'organizationUnits': url,
+        if (resourceServers case final url?) 'resourceServers': url,
+        if (connections case final url?) 'connections': url,
+        if (flows case final url?) 'flows': url,
+        if (notificationTemplates case final url?) 'notificationTemplates': url,
+        if (design case final url?) 'design': url,
+        if (i18n case final url?) 'i18n': url,
+        if (serverConfig case final url?) 'serverConfig': url,
+        if (gateways case final url?) 'gateways': url,
+        if (variables case final url?) 'variables': url,
+        if (secrets case final url?) 'secrets': url,
+        if (configurationVersions case final url?) 'configurationVersions': url,
+        if (import case final url?) 'import': url,
+        if (export case final url?) 'export': url,
       };
 }
 
