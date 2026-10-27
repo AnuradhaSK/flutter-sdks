@@ -1,3 +1,7 @@
+## 1.4.0
+
+- Add management operations for agents, groups, roles and users
+
 ## 1.3.0
 
 - Sign in through the app's backend in the Flutter SDK
