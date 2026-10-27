@@ -1,6 +1,7 @@
 // Copyright 2026 The ThunderID Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import '../management/management_transport.dart';
 import 'backend.dart';
 import 'preferences.dart';
 
@@ -63,13 +64,17 @@ class ThunderIDConfig {
   /// on a debug check, as the Quickstart sample does.
   final bool allowInsecureConnections;
 
+  /// HTTP options. [ThunderIDHttpConfig.fetcher] replaces the transport for management
+  /// operations only. Not forwarded to the native SDKs.
+  final ThunderIDHttpConfig? http;
+
   // Token Validation
   final TokenValidationConfig tokenValidation;
 
   // Endpoints
-  /// Endpoint overrides. Setting [EndpointsConfig.backend] hands sign-in to a backend the app
-  /// owns. It is kept out of [toMap], so it never reaches the native SDK or the OIDC provider
-  /// metadata.
+  /// Endpoint overrides: the management collection URLs, and [EndpointsConfig.backend], which
+  /// hands sign-in to a backend the app owns. Kept out of [toMap], so none of it reaches the native
+  /// SDK or the OIDC provider metadata.
   final EndpointsConfig? endpoints;
 
   // Session
@@ -101,6 +106,7 @@ class ThunderIDConfig {
     this.allowInsecureConnections = false,
     this.attestationEnabled = false,
     this.cloudProjectNumber,
+    this.http,
     this.tokenValidation = const TokenValidationConfig(),
     this.endpoints,
     this.session = const SessionConfig(),
@@ -133,12 +139,41 @@ class ThunderIDConfig {
 
 /// Per-endpoint overrides (spec "Configuration").
 class EndpointsConfig {
+  /// Management collection URL overrides. Unset, a collection resolves to
+  /// `{baseUrl}/{collection}`. A value is the collection URL; a single resource is addressed as
+  /// that URL followed by its identifier. Each URL must be HTTPS (plain HTTP is accepted for a
+  /// loopback address only). Consumed by the Dart management layer only.
+  final String? users;
+  final String? userTypes;
+  final String? groups;
+  final String? roles;
+  final String? agents;
+  final String? agentTypes;
+
   /// The app backend's auth endpoints. Setting them hands sign-in to the backend: the SDK then
   /// signs in, reads the session, and sends API calls through the backend, and the embedded
   /// flows are refused. Never inferred, and fixed for the life of the client.
   final BackendEndpoints? backend;
 
-  const EndpointsConfig({this.backend});
+  const EndpointsConfig({
+    this.users,
+    this.userTypes,
+    this.groups,
+    this.roles,
+    this.agents,
+    this.agentTypes,
+    this.backend,
+  });
+
+  /// The management collection overrides that are set, keyed by `ManagementEndpointKeys`.
+  Map<String, String> get collections => {
+        if (users case final url?) 'users': url,
+        if (userTypes case final url?) 'userTypes': url,
+        if (groups case final url?) 'groups': url,
+        if (roles case final url?) 'roles': url,
+        if (agents case final url?) 'agents': url,
+        if (agentTypes case final url?) 'agentTypes': url,
+      };
 }
 
 /// Behaviour around the session.
@@ -150,6 +185,16 @@ class SessionConfig {
   final int checkInterval;
 
   const SessionConfig({this.checkInterval = 0});
+}
+
+/// HTTP options (spec "Configuration": `http`).
+class ThunderIDHttpConfig {
+  /// Replaces the SDK's authenticated transport for management operations. Authentication,
+  /// token, and flow requests keep using the native SDK's transport. A fetcher passed to a single
+  /// management call takes precedence over this one.
+  final ManagementFetcher? fetcher;
+
+  const ThunderIDHttpConfig({this.fetcher});
 }
 
 class TokenValidationConfig {

@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../user_avatar.dart';
+import '../account/user_avatar.dart';
 
 /// Shared visual language for the styled `UserProfile` and `ChangeCredential` widgets.
 ///

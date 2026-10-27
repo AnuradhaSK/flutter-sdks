@@ -28,6 +28,19 @@ const Map<String, Map<String, String>> playgroundBundles = {
   },
 };
 
+/// `.env` variables that override one management collection URL, keyed by the SDK's
+/// [ManagementEndpointKeys]. Each value becomes an entry of [ThunderIDConfig.endpoints].
+const Map<String, String> endpointEnvKeys = {
+  ManagementEndpointKeys.users: 'THUNDERID_ENDPOINT_USERS',
+  ManagementEndpointKeys.userTypes: 'THUNDERID_ENDPOINT_USER_TYPES',
+  ManagementEndpointKeys.groups: 'THUNDERID_ENDPOINT_GROUPS',
+  ManagementEndpointKeys.roles: 'THUNDERID_ENDPOINT_ROLES',
+  ManagementEndpointKeys.agents: 'THUNDERID_ENDPOINT_AGENTS',
+  ManagementEndpointKeys.agentTypes: 'THUNDERID_ENDPOINT_AGENT_TYPES',
+};
+
+const _defaultScopes = ['openid', 'profile', 'email'];
+
 /// Playground settings read from `.env`.
 class PlaygroundConfig {
   final String baseUrl;
@@ -37,6 +50,18 @@ class PlaygroundConfig {
   final String? afterSignOutUrl;
   final bool attestationEnabled;
   final int? cloudProjectNumber;
+
+  /// Scopes requested at sign-in. Management calls need the server's admin permissions in the
+  /// token, so add them here (`THUNDERID_SCOPES`) to exercise the admin checks and components.
+  final List<String> scopes;
+
+  /// Management collection URL overrides, passed as [ThunderIDConfig.endpoints]. Empty means
+  /// every collection resolves under [baseUrl].
+  final Map<String, String> endpoints;
+
+  /// Organization unit the admin create components use (`THUNDERID_OU_ID`). When unset they
+  /// fall back to the signed-in user's `ouId` claim.
+  final String? ouId;
 
   /// Base URL of an app backend that runs sign-in (`endpoints.backend`). When set, the SDK signs
   /// in through it and [baseUrl] is the API base its proxy fronts.
@@ -50,6 +75,9 @@ class PlaygroundConfig {
     this.afterSignOutUrl,
     this.attestationEnabled = false,
     this.cloudProjectNumber,
+    this.scopes = _defaultScopes,
+    this.endpoints = const {},
+    this.ouId,
     this.backendUrl,
   });
 
@@ -59,6 +87,12 @@ class PlaygroundConfig {
       return value == null || value.isEmpty ? null : value;
     }
 
+    final endpoints = <String, String>{
+      for (final key in endpointEnvKeys.keys)
+        if (read(endpointEnvKeys[key]!) case final url?) key: url,
+    };
+    final scopes = read('THUNDERID_SCOPES')?.split(RegExp(r'[\s,]+')).where((s) => s.isNotEmpty).toList();
+
     return PlaygroundConfig(
       baseUrl: read('THUNDERID_BASE_URL') ?? 'https://localhost:8090',
       applicationId: read('THUNDERID_APP_ID'),
@@ -67,6 +101,9 @@ class PlaygroundConfig {
       afterSignOutUrl: read('THUNDERID_AFTER_SIGN_OUT_URL'),
       attestationEnabled: read('THUNDERID_ATTESTATION_ENABLED')?.toLowerCase() == 'true',
       cloudProjectNumber: int.tryParse(read('THUNDERID_CLOUD_PROJECT_NUMBER') ?? ''),
+      scopes: scopes == null || scopes.isEmpty ? _defaultScopes : scopes,
+      endpoints: endpoints,
+      ouId: read('THUNDERID_OU_ID'),
       backendUrl: read('THUNDERID_BACKEND_URL'),
     );
   }
@@ -84,13 +121,21 @@ class PlaygroundConfig {
         applicationId: applicationId,
         afterSignInUrl: afterSignInUrl,
         afterSignOutUrl: afterSignOutUrl,
-        scopes: const ['openid', 'profile', 'email'],
+        scopes: scopes,
         attestationEnabled: attestationEnabled,
         cloudProjectNumber: cloudProjectNumber,
         // Local ThunderID servers serve a self-signed certificate, which Android rejects.
         // Debug builds only; release builds keep strict TLS.
         allowInsecureConnections: kDebugMode,
-        endpoints: backendUrl == null ? null : EndpointsConfig(backend: BackendEndpoints(baseUrl: backendUrl!)),
+        endpoints: EndpointsConfig(
+          users: endpoints[ManagementEndpointKeys.users],
+          userTypes: endpoints[ManagementEndpointKeys.userTypes],
+          groups: endpoints[ManagementEndpointKeys.groups],
+          roles: endpoints[ManagementEndpointKeys.roles],
+          agents: endpoints[ManagementEndpointKeys.agents],
+          agentTypes: endpoints[ManagementEndpointKeys.agentTypes],
+          backend: backendUrl == null ? null : BackendEndpoints(baseUrl: backendUrl!),
+        ),
         preferences: const ThunderIDPreferences(
           theme: ThemePreferences(mode: 'dark'),
           i18n: I18nPreferences(bundles: playgroundBundles),
