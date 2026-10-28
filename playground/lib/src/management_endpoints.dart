@@ -16,7 +16,8 @@ class ResolvedEndpoint {
 
 /// Asks the SDK itself where each management collection resolves.
 ///
-/// The SDK has no public resolver, so each list call is sent through a per-call fetcher that
+/// The SDK has no public resolver, so each list call (a dry-run import and an empty export for
+/// those two collections) is sent through a per-call fetcher that
 /// records the URL and answers with an empty page. Nothing reaches the network, and the URLs are
 /// exactly the ones a real call would use: [ThunderIDConfig.endpoints] first, then `baseUrl`.
 Future<List<ResolvedEndpoint>> resolveManagementEndpoints(ThunderIDManagementClient management) async {
@@ -27,6 +28,23 @@ Future<List<ResolvedEndpoint>> resolveManagementEndpoints(ThunderIDManagementCli
     ManagementEndpointKeys.roles: (f) => management.getRoles(limit: 1, fetcher: f),
     ManagementEndpointKeys.agents: (f) => management.getAgents(limit: 1, fetcher: f),
     ManagementEndpointKeys.agentTypes: (f) => management.getAgentTypes(limit: 1, fetcher: f),
+    ManagementEndpointKeys.applications: (f) => management.getApplications(limit: 1, fetcher: f),
+    ManagementEndpointKeys.organizationUnits: (f) => management.getOrganizationUnits(limit: 1, fetcher: f),
+    ManagementEndpointKeys.resourceServers: (f) => management.getResourceServers(limit: 1, fetcher: f),
+    ManagementEndpointKeys.connections: (f) => management.getConnections(limit: 1, fetcher: f),
+    ManagementEndpointKeys.flows: (f) => management.getFlows(limit: 1, fetcher: f),
+    ManagementEndpointKeys.notificationTemplates: (f) =>
+        management.getNotificationTemplates(NotificationChannel.email, limit: 1, fetcher: f),
+    ManagementEndpointKeys.design: (f) => management.getThemes(limit: 1, fetcher: f),
+    ManagementEndpointKeys.i18n: (f) => management.getLanguages(fetcher: f),
+    ManagementEndpointKeys.serverConfig: (f) => management.getServerConfigs(fetcher: f),
+    ManagementEndpointKeys.gateways: (f) => management.getGateways(fetcher: f),
+    ManagementEndpointKeys.variables: (f) => management.getVariables(limit: 1, fetcher: f),
+    ManagementEndpointKeys.secrets: (f) => management.getSecrets(limit: 1, fetcher: f),
+    ManagementEndpointKeys.configurationVersions: (f) => management.getConfigurationVersions(fetcher: f),
+    ManagementEndpointKeys.import: (f) =>
+        management.importConfiguration(const ImportConfigurationRequest(dryRun: true), fetcher: f),
+    ManagementEndpointKeys.export: (f) => management.exportConfiguration(const ExportConfigurationRequest(), fetcher: f),
   };
   final resolved = <ResolvedEndpoint>[];
   for (final entry in calls.entries) {

@@ -97,6 +97,33 @@ const _sampleAgentTypes = [
   AdminSelectOption(value: 'worker', label: 'Worker'),
 ];
 
+const _sampleApplications = [
+  BasicApplication(id: 'app-shop', name: 'Shop', clientId: 'shop-client', type: 'browser', status: 'ACTIVE'),
+  BasicApplication(id: 'app-billing', name: 'Billing', clientId: 'billing-client', type: 'm2m', status: 'SUSPENDED'),
+];
+
+final _sampleApplication = Application.fromJson({
+  'id': 'app-shop',
+  'ouId': _ou,
+  'name': 'Shop',
+  'description': 'Storefront',
+  'type': 'browser',
+  'url': 'https://shop.example.com',
+  'status': {'value': 'ACTIVE'},
+  'inboundAuthConfig': [
+    {
+      'type': 'oauth2',
+      'config': {
+        'clientId': 'shop-client',
+        'grantTypes': ['authorization_code', 'refresh_token'],
+        'responseTypes': ['code'],
+        'redirectUris': ['https://shop.example.com/callback'],
+        'publicClient': false,
+      },
+    },
+  ],
+});
+
 // ── Controls ──────────────────────────────────────────────────────────────
 
 const _states = ['data', 'loading', 'empty', 'forbidden'];
@@ -247,6 +274,7 @@ ComponentDef _create({
           : _snippet(name, [
               _litArg(s, 'ouId'),
               if (id == 'agentCreate') _litArg(s, 'owner'),
+              if (id == 'applicationCreate') 'onDone: () {}',
               _litArg(s, 'title'),
               'onCreated: (created) {}',
               'onCancel: () {}',
@@ -650,6 +678,118 @@ final List<ComponentDef> adminComponentDefs = [
         : _snippet('AgentDetails', [
             'agentId: ${lit(_id(s, 'agentId', 'agent').isEmpty ? 'agent-id' : _id(s, 'agentId', 'agent'))}',
             if (s.flag('deletable')) 'deletable: true',
+            'onDeleted: () {}',
+          ]),
+  ),
+  _list<BasicApplication>(
+    id: 'applicationList',
+    name: 'ApplicationList',
+    kind: 'application',
+    itemsArg: 'applications',
+    errorKey: 'admin.applications.list.error',
+    sample: _sampleApplications,
+    itemId: (a) => a.id,
+    connected: (s, limit, onSelect) =>
+        ApplicationList(limit: limit, title: _opt(s, 'title'), onSelect: onSelect, preferences: _prefs(s)),
+    base: (s, items, error, onSelect) => BaseApplicationList(
+      applications: items,
+      isLoading: s.text('state') == 'loading',
+      error: error,
+      title: _opt(s, 'title'),
+      onSelect: onSelect,
+      totalResults: items.length,
+      preferences: _prefs(s),
+    ),
+  ),
+  _create(
+    id: 'applicationCreate',
+    name: 'ApplicationCreate',
+    errorKey: 'admin.applications.create.error',
+    connected: (s) => ApplicationCreate(
+      ouId: _opt(s, 'ouId'),
+      title: _opt(s, 'title'),
+      // The secret is shown once in the component; never log it.
+      onCreated: _emitWith(s, 'onCreated', (r) => '${r.application.id}, secret: ${r.clientSecret != null}'),
+      onDone: () => s.emit('onDone'),
+      onCancel: () => s.emit('onCancel'),
+      preferences: _prefs(s),
+    ),
+    base: (context, s, error) => BaseApplicationCreate(
+      isSubmitting: s.flag('submitting'),
+      error: error,
+      title: _opt(s, 'title'),
+      onSubmit: _emitWith(s, 'onSubmit', (sub) => '${sub.name}, ${sub.type}, ${sub.grantTypes.join('/')}'),
+      onCancel: () => s.emit('onCancel'),
+      preferences: _prefs(s),
+    ),
+  ),
+  ComponentDef(
+    id: 'applicationDetails',
+    name: 'ApplicationDetails',
+    category: 'Admin',
+    defaults: const {
+      'applicationId': '',
+      'deletable': false,
+      'editable': true,
+      'secretRegenerable': false,
+      'state': 'data',
+    },
+    controls: const [
+      ControlDef.text('applicationId'),
+      ControlDef.toggle('deletable'),
+      ControlDef.toggle('editable'),
+      ControlDef.toggle('secretRegenerable'),
+    ],
+    stories: const [
+      StoryDef('connected', 'Connected'),
+      StoryDef(
+        'base',
+        'Base (sample data)',
+        controls: [
+          ControlDef.choice('state', _detailStates),
+          ControlDef.toggle('deletable'),
+          ControlDef.toggle('editable'),
+          ControlDef.toggle('secretRegenerable'),
+        ],
+      ),
+    ],
+    build: (context, s) {
+      if (s.story == 'base') {
+        return BaseApplicationDetails(
+          application: s.text('state') == 'data' ? _sampleApplication : null,
+          isLoading: s.text('state') == 'loading',
+          error: _error(context, s, 'admin.applications.details.error'),
+          onDelete: s.flag('deletable') ? () => s.emit('onDelete') : null,
+          onUpdate: s.flag('editable') ? _emitWith(s, 'onUpdate', (e) => e.name) : null,
+          onRegenerateSecret: s.flag('secretRegenerable') ? () => s.emit('onRegenerateSecret') : null,
+          preferences: _prefs(s),
+        );
+      }
+      final applicationId = _id(s, 'applicationId', 'application');
+      if (applicationId.isEmpty) return _needsId('applicationId', 'ApplicationList');
+      return ApplicationDetails(
+        key: ValueKey('applicationDetails/$applicationId'),
+        applicationId: applicationId,
+        deletable: s.flag('deletable'),
+        editable: s.flag('editable'),
+        secretRegenerable: s.flag('secretRegenerable'),
+        onDeleted: () => s.emit('onDeleted'),
+        preferences: _prefs(s),
+      );
+    },
+    code: (s) => s.story == 'base'
+        ? _snippet('BaseApplicationDetails', [
+            'application: application',
+            _stateArgs(s, 'admin.applications.details.error'),
+            if (s.flag('deletable')) 'onDelete: () {}',
+            if (s.flag('editable')) 'onUpdate: (edit) {}',
+            if (s.flag('secretRegenerable')) 'onRegenerateSecret: () {}',
+          ])
+        : _snippet('ApplicationDetails', [
+            'applicationId: ${lit(_id(s, 'applicationId', 'application').isEmpty ? 'application-id' : _id(s, 'applicationId', 'application'))}',
+            if (s.flag('deletable')) 'deletable: true',
+            if (s.flag('editable')) 'editable: true',
+            if (s.flag('secretRegenerable')) 'secretRegenerable: true',
             'onDeleted: () {}',
           ]),
   ),

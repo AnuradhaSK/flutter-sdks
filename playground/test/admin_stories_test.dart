@@ -56,6 +56,7 @@ void main() {
     final byKey = {for (final e in resolved) e.key: e};
     expect(byKey[ManagementEndpointKeys.users]?.url, 'https://auth.example.com/users');
     expect(byKey[ManagementEndpointKeys.agentTypes]?.url, 'https://auth.example.com/agent-types');
+    expect(byKey[ManagementEndpointKeys.applications]?.url, 'https://auth.example.com/applications');
     expect(byKey[ManagementEndpointKeys.groups]?.url, 'https://api.example.com/groups');
     // Plain HTTP is refused for a non-loopback host before anything is sent.
     expect(byKey[ManagementEndpointKeys.roles]?.error, startsWith('INVALID_CONFIGURATION'));
@@ -64,7 +65,7 @@ void main() {
   final admin = componentDefs.where((def) => def.category == 'Admin').toList();
 
   test('every admin widget has a story', () {
-    expect(admin.map((def) => def.name), hasLength(13));
+    expect(admin.map((def) => def.name), hasLength(16));
   });
 
   for (final def in admin) {
@@ -130,6 +131,19 @@ void main() {
           await tester.pump();
           await tester.tap(find.text('Create group'));
           expect(actions, contains('onSubmit Engineering'));
+        }
+        if (def.id == 'customApplicationDetails' && story.id == 'base') {
+          expect(find.text('shop-client'), findsOneWidget);
+          await tester.tap(find.byKey(const Key('playground-custom-application-regenerate')));
+          await tester.pumpAndSettle();
+          expect(actions, isEmpty, reason: 'the custom UI asks for confirmation first');
+          await tester.tap(find.byKey(const Key('playground-custom-application-confirm')));
+          await tester.pumpAndSettle();
+          expect(actions, ['onRegenerateSecret']);
+          expect(find.byKey(const Key('playground-custom-application-secret')), findsOneWidget);
+          await tester.tap(find.text('I have copied it'));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('playground-custom-application-secret')), findsNothing);
         }
         if (def.id == 'customUserDetails' && story.id == 'base') {
           expect(find.text('username: ada'), findsOneWidget);

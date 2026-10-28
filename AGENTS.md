@@ -96,7 +96,8 @@ lib/
       thunderid_channel.dart    MethodChannel bridge (dev.thunderid/sdk)
     models/                     Data models & error types
       thunderid_config.dart     SDK init config
-      thunderid_error.dart      ThunderIDErrorCode enum + IAMException
+      thunderid_error.dart      ThunderIDErrorCode enum, IAMException, IAMApiException (+ serverError),
+                                AdministrationFlowError
       user.dart                 OAuth2 user claims
       user_profile.dart         Detailed profile
       token_response.dart       Token exchange result
@@ -109,12 +110,23 @@ lib/
       thunderid_i18n.dart       Locale resolution chain
       default_strings.dart      Built-in English strings
     flow_template_resolver.dart Embedded-flow URL builder
-    management/                 Management operations (users, groups, roles, agents)
-      thunderid_management_client.dart  CRUD + relationship operations over HTTP
+    management/                 Management operations (users, user types, groups, roles, agents,
+                                agent types, applications, and the resource families below)
+      thunderid_management_client.dart  CRUD + relationship operations over HTTP, administrationMode
+      management_collection.dart        URL resolution + send shared by the client and its extensions
+      administration_flows.dart         Administration flow operations (resolve, find, execute, run)
+      account_lifecycle.dart            Flow-only suspend/unsuspend/unlock for users, agents, applications
+      organization_units.dart, resource_servers.dart, connections.dart, flows.dart,
+      notification_templates.dart, design.dart, translations.dart, server_config.dart,
+      gateways.dart, variables.dart, configuration.dart, sharing.dart
+                                        One extension on ThunderIDManagementClient per resource family
+      secrets.dart                      Secret generation + delegated-agent rule (package-internal)
       management_transport.dart         ManagementFetcher + default authenticated transport
       permissions.dart                  getTokenPermissions / hasPermission
       management_display.dart           toManagementErrorMessage / resolveManagedIdentityName
-    models/management/          ManagedUser, Group, Role, Agent, ManagementPage
+    models/management/          ManagedUser, Group, Role, Agent, Application, entity types,
+                                administration constants, ManagementPage, and one model file per
+                                resource family (organization_unit.dart, connection.dart, ...)
     state/                      ResourceQuery/ResourceMutation notifiers, ManagementResources
     widgets/                    Grouped by function; test/widgets/ mirrors this layout
       thunderid_provider.dart   State provider (InheritedWidget root), shared by every group
@@ -183,7 +195,7 @@ The quickstarts and integration samples live in [thunder-id/samples](https://git
 - Dart 3.2+, Flutter 3.16+; full null safety (`?`, `??`, `!`).
 - No external state management framework — use `InheritedWidget` (`ThunderIDProvider.of(context)`) for state access.
 - All async methods return `Future`; no `Stream`s in the public API.
-- Error handling uses typed `ThunderIDErrorCode` enum (23 codes) and `IAMException`.
+- Error handling uses the typed `ThunderIDErrorCode` enum and `IAMException`.
 - Mark implementation details `_private`; expose only intentional public API.
 - Minimum tap targets: 44×44 logical pixels (WCAG 2.1 AA).
 - All widgets must include `Semantics` labels for accessibility.

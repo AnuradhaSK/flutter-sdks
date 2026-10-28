@@ -4,6 +4,7 @@
 import '../management/management_transport.dart';
 import '../management/thunderid_management_client.dart';
 import '../models/management/agent.dart';
+import '../models/management/application.dart';
 import '../models/management/group.dart';
 import '../models/management/managed_user.dart';
 import '../models/management/management_page.dart';
@@ -25,6 +26,8 @@ abstract final class ManagementQueryKeys {
   static const String agent = 'agent';
   static const String agents = 'agents';
   static const String agentTypes = 'agent-types';
+  static const String application = 'application';
+  static const String applications = 'applications';
 }
 
 /// Variables of [ManagementResources.updateUserMutation].
@@ -44,6 +47,9 @@ typedef RoleAssignmentsVariables = ({String roleId, List<RoleAssignment> assignm
 
 /// Variables of [ManagementResources.updateAgentMutation].
 typedef UpdateAgentVariables = ({String agentId, UpdateAgentRequest data});
+
+/// Variables of [ManagementResources.updateApplicationMutation].
+typedef UpdateApplicationVariables = ({String applicationId, UpdateApplicationRequest data});
 
 /// The state layer over [ThunderIDManagementClient]: each method returns a [ResourceQuery] or
 /// [ResourceMutation] for one management operation, the Flutter counterpart of the React SDK's
@@ -485,6 +491,91 @@ class ManagementResources {
         (String agentId) => client.deleteAgent(agentId, fetcher: fetcher),
         (_) => [
           [ManagementQueryKeys.agents],
+        ],
+        onSuccess,
+        onError,
+      );
+
+  // ── Applications ────────────────────────────────────────────────────────
+
+  ResourceQuery<ManagementPage<BasicApplication>> applicationsQuery({
+    int? limit,
+    int? offset,
+    bool enabled = true,
+    ManagementFetcher? fetcher,
+  }) =>
+      _query(
+        [ManagementQueryKeys.applications, {'limit': limit, 'offset': offset}],
+        () => client.getApplications(limit: limit, offset: offset, fetcher: fetcher),
+        enabled,
+      );
+
+  ResourceQuery<Application> applicationQuery(
+    String? applicationId, {
+    bool enabled = true,
+    ManagementFetcher? fetcher,
+  }) =>
+      _query(
+        [ManagementQueryKeys.application, applicationId],
+        () => client.getApplication(applicationId!, fetcher: fetcher),
+        enabled && applicationId != null,
+      );
+
+  ResourceMutation<CreateApplicationRequest, Application> createApplicationMutation({
+    void Function(Application data, CreateApplicationRequest variables)? onSuccess,
+    void Function(Object error, CreateApplicationRequest variables)? onError,
+    ManagementFetcher? fetcher,
+  }) =>
+      _mutation(
+        (CreateApplicationRequest payload) => client.createApplication(payload, fetcher: fetcher),
+        (_) => [
+          [ManagementQueryKeys.applications],
+        ],
+        onSuccess,
+        onError,
+      );
+
+  ResourceMutation<UpdateApplicationVariables, Application> updateApplicationMutation({
+    void Function(Application data, UpdateApplicationVariables variables)? onSuccess,
+    void Function(Object error, UpdateApplicationVariables variables)? onError,
+    ManagementFetcher? fetcher,
+  }) =>
+      _mutation(
+        (UpdateApplicationVariables v) => client.updateApplication(v.applicationId, v.data, fetcher: fetcher),
+        (UpdateApplicationVariables v) => [
+          [ManagementQueryKeys.application, v.applicationId],
+          [ManagementQueryKeys.applications],
+        ],
+        onSuccess,
+        onError,
+      );
+
+  ResourceMutation<String, void> deleteApplicationMutation({
+    void Function(void data, String applicationId)? onSuccess,
+    void Function(Object error, String applicationId)? onError,
+    ManagementFetcher? fetcher,
+  }) =>
+      _mutation(
+        (String applicationId) => client.deleteApplication(applicationId, fetcher: fetcher),
+        (_) => [
+          [ManagementQueryKeys.applications],
+          [ManagementQueryKeys.roleAssignments],
+        ],
+        onSuccess,
+        onError,
+      );
+
+  /// Regenerates an application's client secret. The new secret is in the result's
+  /// `clientSecret`, readable only there.
+  ResourceMutation<String, RegenerateClientSecretResult> regenerateClientSecretMutation({
+    void Function(RegenerateClientSecretResult data, String applicationId)? onSuccess,
+    void Function(Object error, String applicationId)? onError,
+    ManagementFetcher? fetcher,
+  }) =>
+      _mutation(
+        (String applicationId) => client.regenerateClientSecret(applicationId, fetcher: fetcher),
+        (String applicationId) => [
+          [ManagementQueryKeys.application, applicationId],
         ],
         onSuccess,
         onError,

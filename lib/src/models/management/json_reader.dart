@@ -33,6 +33,11 @@ int readInt(Map<String, dynamic> json, String key, [int fallback = 0]) {
   return fallback;
 }
 
+int? readOptionalInt(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  return value is num ? value.toInt() : null;
+}
+
 List<Object?> readList(Map<String, dynamic> json, String key) {
   final value = json[key];
   return value is List ? value : const <Object?>[];
@@ -43,3 +48,12 @@ List<String> readStringList(Map<String, dynamic> json, String key) =>
 
 List<String>? readOptionalStringList(Map<String, dynamic> json, String key) =>
     json[key] is List ? readStringList(json, key) : null;
+
+/// The keys of [json] that [known] does not list, kept so a write can send them back.
+Map<String, dynamic> readUnmodeled(Map<String, dynamic> json, Set<String> known) => {
+      for (final entry in json.entries)
+        if (!known.contains(entry.key)) entry.key: entry.value,
+    };
+
+/// [value] as a map, or `null` when it is not one.
+Map<String, dynamic>? readOptionalMap(Object? value) => value is Map ? readMap(value) : null;

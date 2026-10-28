@@ -37,6 +37,21 @@ const Map<String, String> endpointEnvKeys = {
   ManagementEndpointKeys.roles: 'THUNDERID_ENDPOINT_ROLES',
   ManagementEndpointKeys.agents: 'THUNDERID_ENDPOINT_AGENTS',
   ManagementEndpointKeys.agentTypes: 'THUNDERID_ENDPOINT_AGENT_TYPES',
+  ManagementEndpointKeys.applications: 'THUNDERID_ENDPOINT_APPLICATIONS',
+  ManagementEndpointKeys.organizationUnits: 'THUNDERID_ENDPOINT_ORGANIZATION_UNITS',
+  ManagementEndpointKeys.resourceServers: 'THUNDERID_ENDPOINT_RESOURCE_SERVERS',
+  ManagementEndpointKeys.connections: 'THUNDERID_ENDPOINT_CONNECTIONS',
+  ManagementEndpointKeys.flows: 'THUNDERID_ENDPOINT_FLOWS',
+  ManagementEndpointKeys.notificationTemplates: 'THUNDERID_ENDPOINT_NOTIFICATION_TEMPLATES',
+  ManagementEndpointKeys.design: 'THUNDERID_ENDPOINT_DESIGN',
+  ManagementEndpointKeys.i18n: 'THUNDERID_ENDPOINT_I18N',
+  ManagementEndpointKeys.serverConfig: 'THUNDERID_ENDPOINT_SERVER_CONFIG',
+  ManagementEndpointKeys.gateways: 'THUNDERID_ENDPOINT_GATEWAYS',
+  ManagementEndpointKeys.variables: 'THUNDERID_ENDPOINT_VARIABLES',
+  ManagementEndpointKeys.secrets: 'THUNDERID_ENDPOINT_SECRETS',
+  ManagementEndpointKeys.configurationVersions: 'THUNDERID_ENDPOINT_CONFIGURATION_VERSIONS',
+  ManagementEndpointKeys.import: 'THUNDERID_ENDPOINT_IMPORT',
+  ManagementEndpointKeys.export: 'THUNDERID_ENDPOINT_EXPORT',
 };
 
 const _defaultScopes = ['openid', 'profile', 'email'];
@@ -134,6 +149,7 @@ class PlaygroundConfig {
           roles: endpoints[ManagementEndpointKeys.roles],
           agents: endpoints[ManagementEndpointKeys.agents],
           agentTypes: endpoints[ManagementEndpointKeys.agentTypes],
+          applications: endpoints[ManagementEndpointKeys.applications],
           backend: backendUrl == null ? null : BackendEndpoints(baseUrl: backendUrl!),
         ),
         preferences: const ThunderIDPreferences(

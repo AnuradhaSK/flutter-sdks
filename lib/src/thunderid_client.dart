@@ -441,8 +441,9 @@ class ThunderIDClient {
 
   // ── Management ────────────────────────────────────────────────────────────
 
-  /// Management operations for users, groups, roles, and agents, authorized with the signed-in
-  /// user's access token (spec "Management operations").
+  /// Management operations for users, user types, groups, roles, agents, agent types, and
+  /// applications, authorized with the signed-in user's access token (spec "Management
+  /// operations").
   ///
   /// Uses [ThunderIDConfig.endpoints] for collection URL overrides and
   /// [ThunderIDConfig.http]'s fetcher, when set, as the transport.

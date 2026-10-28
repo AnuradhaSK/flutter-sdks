@@ -51,7 +51,7 @@ void main() {
       final page = await client.getRoles(limit: 10, offset: 20);
 
       expect(fetcher.last.method, 'GET');
-      expect(fetcher.last.url.toString(), '$baseUrl/roles?limit=10&offset=20');
+      expect(fetcher.last.url.toString(), '$baseUrl/roles?include=display&limit=10&offset=20');
       expect(fetcher.last.headers['Accept'], 'application/json');
       expect(fetcher.last.headers['Content-Type'], 'application/json');
       expect(fetcher.last.body, isNull);
@@ -90,7 +90,7 @@ void main() {
     test('getRole, updateRole and deleteRole address the single resource', () async {
       fetcher.respond = (_) => json({'id': 'r1', 'name': 'Dev', 'ouId': 'ou1'});
       await client.getRole('r1');
-      expect(fetcher.last.url.toString(), '$baseUrl/roles/r1');
+      expect(fetcher.last.url.toString(), '$baseUrl/roles/r1?include=display');
 
       await client.updateRole('r1', const UpdateRoleRequest(name: 'Dev2', ouId: 'ou1'));
       expect(fetcher.last.method, 'PUT');
@@ -227,7 +227,7 @@ void main() {
             'totalResults': 1,
           });
       final types = await client.getUserTypes(limit: 100);
-      expect(fetcher.last.url.toString(), '$baseUrl/user-types?limit=100');
+      expect(fetcher.last.url.toString(), '$baseUrl/user-types?include=display&limit=100');
       expect(types.items.single.handle, 'customer');
 
       fetcher.respond = (_) => const ManagementResponse(statusCode: 204);
@@ -260,7 +260,7 @@ void main() {
             'totalResults': 1,
           });
       final types = await client.getAgentTypes();
-      expect(fetcher.last.url.toString(), '$baseUrl/agent-types');
+      expect(fetcher.last.url.toString(), '$baseUrl/agent-types?include=display');
       expect(types.items.single.displayName, 'Assistant');
 
       fetcher.respond = (_) => json({'id': 'a1', 'name': 'Bot', 'ouId': 'ou1', 'type': 'assistant'});
@@ -295,10 +295,10 @@ void main() {
       expect(fetcher.last.url.toString(), 'https://rs.example.com/api/groups/g1/members?include=display');
 
       await overridden.getAgentTypes();
-      expect(fetcher.last.url.toString(), 'https://rs.example.com/api/agent-types');
+      expect(fetcher.last.url.toString(), 'https://rs.example.com/api/agent-types?include=display');
 
       await overridden.getRoles();
-      expect(fetcher.last.url.toString(), '$baseUrl/roles', reason: 'no override: baseUrl + collection');
+      expect(fetcher.last.url.toString(), '$baseUrl/roles?include=display', reason: 'no override: baseUrl + collection');
 
       await overridden.getGroups(url: 'https://other.example.com/g');
       expect(fetcher.last.url.toString(), 'https://other.example.com/g?include=display');
@@ -326,7 +326,7 @@ void main() {
       final loopback = ThunderIDManagementClient(baseUrl: 'http://localhost:8090', fetcher: fetcher.call);
       fetcher.respond = (_) => json({'roles': <Object?>[]});
       await loopback.getRoles();
-      expect(fetcher.last.url.toString(), 'http://localhost:8090/roles');
+      expect(fetcher.last.url.toString(), 'http://localhost:8090/roles?include=display');
     });
   });
 
@@ -378,6 +378,11 @@ void main() {
       expect(ThunderIDErrorCode.notFound.value, 'NOT_FOUND');
       expect(ThunderIDErrorCode.fromString('FORBIDDEN'), ThunderIDErrorCode.forbidden);
       expect(ThunderIDErrorCode.fromString('NOT_FOUND'), ThunderIDErrorCode.notFound);
+      expect(ThunderIDErrorCode.administrationFlowFailed.value, 'ADMINISTRATION_FLOW_FAILED');
+      expect(
+        ThunderIDErrorCode.fromString('ADMINISTRATION_FLOW_FAILED'),
+        ThunderIDErrorCode.administrationFlowFailed,
+      );
     });
   });
 

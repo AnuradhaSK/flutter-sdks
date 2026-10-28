@@ -18,13 +18,16 @@ bool isAllowedManagementUrl(Uri uri) {
   return uri.scheme == 'http' && _loopbackHosts.contains(uri.host.toLowerCase());
 }
 
-/// Builds the request URL: [collectionUrl], then `/{id}`, then `/{subPath}`, then [query]
-/// with `null` values dropped.
+/// Builds the request URL: [collectionUrl], then `/{id}`, then `/{subPath}`, then each of
+/// [segments], then [query] with `null` values dropped. Each path segment is percent-encoded on
+/// its own, so a segment can carry characters such as `/` or `?` safely. A query value that is a
+/// list is sent as the parameter repeated once per entry.
 Uri buildManagementUrl(
   String operation,
   String collectionUrl, {
   String? id,
   String? subPath,
+  List<String> segments = const [],
   Map<String, Object?> query = const {},
 }) {
   final trimmed = collectionUrl.replaceFirst(RegExp(r'/+$'), '');
@@ -36,21 +39,25 @@ Uri buildManagementUrl(
       '(plain HTTP is accepted for a loopback address only).',
     );
   }
-  if (id != null && id.trim().isEmpty) {
+  if ((id != null && id.trim().isEmpty) || segments.any((segment) => segment.trim().isEmpty)) {
     throw IAMException(ThunderIDErrorCode.invalidInput, '$operation: a resource identifier is required.');
   }
 
-  final segments = <String>[
+  final path = <String>[
     ...parsed.pathSegments.where((segment) => segment.isNotEmpty),
     if (id != null) id,
     if (id != null && subPath != null) ...subPath.split('/'),
+    ...segments,
   ];
-  final params = <String, String>{
-    ...parsed.queryParameters,
+  final params = <String, Object>{
+    ...parsed.queryParametersAll.map((key, values) => MapEntry(key, values.length == 1 ? values.first : values)),
     for (final entry in query.entries)
-      if (entry.value != null) entry.key: entry.value.toString(),
+      if (entry.value case final Iterable<Object?> values)
+        entry.key: [for (final value in values) if (value != null) value.toString()]
+      else if (entry.value != null)
+        entry.key: entry.value.toString(),
   };
-  return parsed.replace(pathSegments: segments, queryParameters: params.isEmpty ? null : params);
+  return parsed.replace(pathSegments: path, queryParameters: params.isEmpty ? null : params);
 }
 
 /// Maps an HTTP failure status onto an error code. 403 and 404 are kept distinct so a caller

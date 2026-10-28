@@ -109,6 +109,9 @@ class AdminTextField extends StatefulWidget {
   /// Shown inside the field while it is empty.
   final String? hint;
 
+  /// More than one makes a multi-line field.
+  final int maxLines;
+
   const AdminTextField({
     super.key,
     required this.ac,
@@ -122,6 +125,7 @@ class AdminTextField extends StatefulWidget {
     this.enabled = true,
     this.onSubmitted,
     this.hint,
+    this.maxLines = 1,
   });
 
   @override
@@ -154,7 +158,9 @@ class _AdminTextFieldState extends State<AdminTextField> {
           controller: _controller,
           enabled: widget.enabled,
           obscureText: widget.obscureText,
-          keyboardType: widget.keyboardType,
+          maxLines: widget.obscureText ? 1 : widget.maxLines,
+          minLines: 1,
+          keyboardType: widget.keyboardType ?? (widget.maxLines > 1 ? TextInputType.multiline : null),
           autocorrect: false,
           enableSuggestions: !widget.obscureText,
           onChanged: widget.onChanged,
