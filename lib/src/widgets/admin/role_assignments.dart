@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../management/management_display.dart';
+import '../../management/management_filter.dart';
 import '../../models/management/agent.dart';
 import '../../models/management/group.dart';
 import '../../models/management/managed_user.dart';
@@ -177,6 +178,9 @@ class RoleAssignments extends StatefulWidget {
 
   /// Whether to show the assignee type filter, which narrows the list on the server.
   final bool filterable;
+
+  /// Organization unit the users, groups and agents offered for assignment are listed from.
+  final String? ouId;
   final String? title;
   final String? description;
   final ThunderIDPreferences? preferences;
@@ -189,6 +193,7 @@ class RoleAssignments extends StatefulWidget {
     required this.roleId,
     this.editable = false,
     this.filterable = true,
+    this.ouId,
     this.title,
     this.description,
     this.preferences,
@@ -211,9 +216,13 @@ class _RoleAssignmentsState extends AdminConnectedState<RoleAssignments> {
   @override
   void bind(ManagementResources resources) {
     _assignments = own(resources.roleAssignmentsQuery(widget.roleId, type: _typeFilter, limit: 100));
-    _users = own(resources.usersQuery(limit: 100, enabled: widget.editable));
-    _groups = own(resources.groupsQuery(limit: 100, enabled: widget.editable));
-    _agents = own(resources.agentsQuery(limit: 100, enabled: widget.editable));
+    final ouId = widget.ouId;
+    final filter = ouId == null ? null : ManagementFilter.equality('ouId', ouId);
+    // An ouId that makes no filter, such as a blank one, lists no candidates rather than every organization unit's.
+    final listCandidates = widget.editable && (ouId == null || filter != null);
+    _users = own(resources.usersQuery(filter: filter, limit: 100, enabled: listCandidates));
+    _groups = own(resources.groupsQuery(filter: filter, limit: 100, enabled: listCandidates));
+    _agents = own(resources.agentsQuery(filter: filter, limit: 100, enabled: listCandidates));
     _assign = own(resources.addRoleAssignmentsMutation());
     _unassign = own(resources.removeRoleAssignmentsMutation());
   }
@@ -221,7 +230,10 @@ class _RoleAssignmentsState extends AdminConnectedState<RoleAssignments> {
   @override
   void didUpdateWidget(RoleAssignments oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.roleId != widget.roleId || oldWidget.editable != widget.editable) rebind();
+    // New queries start with no data, so no candidate from the previous organization unit is offered.
+    if (oldWidget.roleId != widget.roleId || oldWidget.editable != widget.editable || oldWidget.ouId != widget.ouId) {
+      rebind();
+    }
   }
 
   @override

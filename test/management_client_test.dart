@@ -140,6 +140,9 @@ void main() {
       await client.getGroups(limit: 20, offset: 0);
       expect(fetcher.last.url.toString(), '$baseUrl/groups?include=display&limit=20&offset=0');
 
+      await client.getGroups(filter: 'ouId eq "ou1"', limit: 20);
+      expect(fetcher.last.url.queryParameters['filter'], 'ouId eq "ou1"');
+
       fetcher.respond = (_) => json({'id': 'g1', 'name': 'Team', 'ouId': 'ou1'});
       await client.getGroup('g1');
       expect(fetcher.last.url.toString(), '$baseUrl/groups/g1?include=display');
