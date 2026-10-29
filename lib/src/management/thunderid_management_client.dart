@@ -390,7 +390,9 @@ class ThunderIDManagementClient {
 
   // ── Groups ──────────────────────────────────────────────────────────────
 
+  /// [filter] narrows the page on the server, such as `ouId eq "<id>"`.
   Future<ManagementPage<Group>> getGroups({
+    String? filter,
     int? limit,
     int? offset,
     String? url,
@@ -402,7 +404,7 @@ class ThunderIDManagementClient {
           failureMessage: 'Failed to fetch groups',
           endpointKey: ManagementEndpointKeys.groups,
           collection: 'groups',
-          query: {'include': 'display', 'limit': limit, 'offset': offset},
+          query: {'filter': filter, 'include': 'display', 'limit': limit, 'offset': offset},
           url: url,
           fetcher: fetcher,
         ),

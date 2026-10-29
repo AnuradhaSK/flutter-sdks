@@ -455,6 +455,93 @@ void main() {
       expect(server.where('GET', '/agents').last.url.queryParameters['filter'], 'name eq "Concierge"');
     });
 
+    testWidgets('RoleAssignments lists candidates from its organization unit and drops them when it changes',
+        (tester) async {
+      server
+        ..on('GET', '/roles/r1/assignments', {'totalResults': 0, 'assignments': []})
+        ..on('GET', '/users', {
+          'totalResults': 1,
+          'users': [
+            {'id': 'u1', 'display': 'Ada'},
+          ],
+        })
+        ..on('GET', '/groups', {
+          'totalResults': 1,
+          'groups': [
+            {'id': 'g1', 'name': 'Sales', 'ouId': 'ou1'},
+          ],
+        })
+        ..on('GET', '/agents', {
+          'totalResults': 1,
+          'agents': [
+            {'id': 'a1', 'ouId': 'ou1', 'type': 'default', 'attributes': {'name': 'Bot'}},
+          ],
+        });
+      late RoleAssignmentsState state;
+      Widget view(String ouId) => _app(
+            server,
+            RoleAssignments(
+              roleId: 'r1',
+              editable: true,
+              ouId: ouId,
+              builder: (context, assignments) {
+                state = assignments;
+                return const SizedBox.shrink();
+              },
+            ),
+          );
+
+      await tester.pumpWidget(view('ou1'));
+      await tester.pumpAndSettle();
+
+      for (final path in ['/users', '/groups', '/agents']) {
+        expect(server.where('GET', path).last.url.queryParameters['filter'], 'ouId eq "ou1"');
+      }
+      expect(state.candidates![RoleAssigneeType.user], hasLength(1));
+      expect(state.candidates![RoleAssigneeType.group], hasLength(1));
+      expect(state.candidates![RoleAssigneeType.agent], hasLength(1));
+
+      for (final path in ['/users', '/groups', '/agents']) {
+        server.on('GET', path, {'message': 'failed'}, status: 500);
+      }
+      await tester.pumpWidget(view('ou2'));
+      await tester.pumpAndSettle();
+
+      for (final path in ['/users', '/groups', '/agents']) {
+        expect(server.where('GET', path).last.url.queryParameters['filter'], 'ouId eq "ou2"');
+      }
+      expect(state.candidates![RoleAssigneeType.user], isEmpty);
+      expect(state.candidates![RoleAssigneeType.group], isEmpty);
+      expect(state.candidates![RoleAssigneeType.agent], isEmpty);
+    });
+
+    testWidgets('RoleAssignments lists no candidates for an organization unit that makes no filter', (tester) async {
+      server.on('GET', '/roles/r1/assignments', {'totalResults': 0, 'assignments': []});
+      late RoleAssignmentsState state;
+      await tester.pumpWidget(
+        _app(
+          server,
+          RoleAssignments(
+            roleId: 'r1',
+            editable: true,
+            ouId: '  ',
+            builder: (context, assignments) {
+              state = assignments;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final path in ['/users', '/groups', '/agents']) {
+        expect(server.where('GET', path), isEmpty);
+      }
+      expect(state.candidates![RoleAssigneeType.user], isEmpty);
+      expect(state.candidates![RoleAssigneeType.group], isEmpty);
+      expect(state.candidates![RoleAssigneeType.agent], isEmpty);
+    });
+
     testWidgets('RoleAssignments hands the type filter to a builder and requests by type', (tester) async {
       server.on('GET', '/roles/r1/assignments', {'totalResults': 0, 'assignments': []});
       late RoleAssignmentsState state;

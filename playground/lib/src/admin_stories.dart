@@ -550,8 +550,8 @@ final List<ComponentDef> adminComponentDefs = [
     id: 'roleAssignments',
     name: 'RoleAssignments',
     category: 'Admin',
-    defaults: const {'roleId': '', 'editable': true, 'state': 'data'},
-    controls: const [ControlDef.text('roleId'), ControlDef.toggle('editable')],
+    defaults: const {'roleId': '', 'editable': true, 'ouId': '', 'state': 'data'},
+    controls: const [ControlDef.text('roleId'), ControlDef.toggle('editable'), ControlDef.text('ouId')],
     stories: const [
       StoryDef('connected', 'Connected'),
       StoryDef('base', 'Base (sample data)', controls: [ControlDef.choice('state', _states), ControlDef.toggle('editable')]),
@@ -575,6 +575,7 @@ final List<ComponentDef> adminComponentDefs = [
         key: ValueKey('roleAssignments/$roleId/${s.flag('editable')}'),
         roleId: roleId,
         editable: s.flag('editable'),
+        ouId: _opt(s, 'ouId'),
         preferences: _prefs(s),
       );
     },
@@ -589,6 +590,7 @@ final List<ComponentDef> adminComponentDefs = [
         : _snippet('RoleAssignments', [
             'roleId: ${lit(_id(s, 'roleId', 'role').isEmpty ? 'role-id' : _id(s, 'roleId', 'role'))}',
             if (s.flag('editable')) 'editable: true',
+            if (_opt(s, 'ouId') != null) 'ouId: ${lit(_opt(s, 'ouId')!)}',
           ]),
   ),
   _list<Agent>(
